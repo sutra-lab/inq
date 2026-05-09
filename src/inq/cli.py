@@ -12,6 +12,7 @@ from .init_cmd import run_init
 from .providers import known_providers, make_provider
 from .server import create_app
 from .sources import LocalSource, SourceError
+from .threads import ThreadStore
 
 
 def _parse_size(s: str) -> int:
@@ -125,12 +126,15 @@ def _run_serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
     except SourceError as exc:
         parser.error(str(exc))
 
-    app = create_app(source=source, provider=provider, dev=args.dev)
+    threads = ThreadStore(source_label=source.label)
+
+    app = create_app(source=source, provider=provider, threads=threads, dev=args.dev)
 
     print(f"inq {__version__}")
     print(f"  source:   {source.label}")
     print(f"  provider: {provider.name}  ({resolved.source})")
     print(f"  model:    {provider.model}")
+    print(f"  threads:  {threads.path}")
     print(f"  serving:  http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info", access_log=False)
     return 0

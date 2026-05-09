@@ -11,6 +11,7 @@ from . import __version__
 from .providers import AskRequest as ProviderAskRequest
 from .providers import Provider, StreamEvent
 from .sources import FileNotFound, FileSource, NotADirectory, NotAFile, SourceError
+from .threads import StoredThread, ThreadStore
 
 
 class Anchor(BaseModel):
@@ -61,6 +62,7 @@ def create_app(
     *,
     source: FileSource,
     provider: Provider,
+    threads: ThreadStore,
     dev: bool = False,
 ) -> FastAPI:
     app = FastAPI(title="inq", version=__version__)
@@ -145,5 +147,23 @@ def create_app(
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @app.get("/api/threads")
+    def list_threads() -> dict:
+        return {"source": source.label, "threads": threads.list()}
+
+    @app.post("/api/threads")
+    def upsert_thread(thread: StoredThread) -> dict:
+        try:
+            return threads.upsert(thread.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.delete("/api/threads/{thread_id}")
+    def delete_thread(thread_id: str) -> dict:
+        ok = threads.delete(thread_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="thread not found")
+        return {"ok": True, "id": thread_id}
 
     return app

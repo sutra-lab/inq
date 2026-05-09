@@ -3,7 +3,14 @@ import { FileTree } from './components/FileTree'
 import { CodeEditor, type Anchor } from './components/CodeEditor'
 import { AskBar } from './components/AskBar'
 import { ResponsePanel } from './components/ResponsePanel'
-import { fetchFile, rawUrl, type FileData } from './api'
+import {
+  deleteThread,
+  fetchFile,
+  fetchThreads,
+  rawUrl,
+  saveThread,
+  type FileData,
+} from './api'
 import { PdfViewer } from './components/PdfViewer'
 import { ask } from './lib/sse'
 import { priorHistory, threadsReducer, type Thread } from './lib/threads'
@@ -21,6 +28,41 @@ export default function App() {
   threadsRef.current = threads
 
   const [theme, , toggleTheme] = useTheme()
+
+  // Load persisted threads once on mount.
+  useEffect(() => {
+    let cancelled = false
+    fetchThreads()
+      .then((res) => {
+        if (cancelled) return
+        // Drop any partial threads that were streaming when the tab last closed.
+        const cleaned = res.threads.map((t) =>
+          t.status === 'streaming' ? { ...t, status: 'error' as const, error: 'interrupted' } : t,
+        )
+        dispatch({ type: 'LOAD', threads: cleaned })
+      })
+      .catch((e) => {
+        // Non-fatal: missing /api/threads (older server) or transient error.
+        console.warn('[inq] could not load persisted threads:', e)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Persist threads when they reach a terminal state (done / error). Track the
+  // last persisted status per id so we don't fire on every TOKEN.
+  const lastPersisted = useRef<Map<string, string>>(new Map())
+  useEffect(() => {
+    for (const t of threads) {
+      const prev = lastPersisted.current.get(t.id)
+      const isTerminal = t.status === 'done' || t.status === 'error'
+      if (isTerminal && prev !== t.status) {
+        lastPersisted.current.set(t.id, t.status)
+        saveThread(t).catch((e) => console.warn('[inq] saveThread failed:', e))
+      }
+    }
+  }, [threads])
 
   // Load file content when selection changes
   useEffect(() => {
@@ -132,6 +174,8 @@ export default function App() {
 
   const handleRemove = useCallback((id: string) => {
     dispatch({ type: 'REMOVE', id })
+    lastPersisted.current.delete(id)
+    deleteThread(id).catch((e) => console.warn('[inq] deleteThread failed:', e))
   }, [])
 
   const handleFocusAnchor = useCallback(
