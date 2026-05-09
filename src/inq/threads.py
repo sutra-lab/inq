@@ -37,6 +37,7 @@ class StoredThread(BaseModel):
     anchor: ThreadAnchor
     messages: list[ThreadMessage]
     error: str | None = None
+    model: str | None = None
     createdAt: str
     updatedAt: str
 

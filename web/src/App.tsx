@@ -29,6 +29,7 @@ export default function App() {
   threadsRef.current = threads
 
   const [theme, , toggleTheme] = useTheme()
+  const [sourceLabel, setSourceLabel] = useState<string>('')
 
   // Load persisted threads once on mount.
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function App() {
     fetchThreads()
       .then((res) => {
         if (cancelled) return
+        setSourceLabel(res.source)
         // Drop any partial threads that were streaming when the tab last closed.
         const cleaned = res.threads.map((t) =>
           t.status === 'streaming' ? { ...t, status: 'error' as const, error: 'interrupted' } : t,
@@ -302,6 +304,7 @@ export default function App() {
         <div className="flex-1 overflow-y-auto">
           <ResponsePanel
             threads={threads}
+            source={sourceLabel}
             onFollowup={handleFollowup}
             onRemove={handleRemove}
             onFocusAnchor={handleFocusAnchor}

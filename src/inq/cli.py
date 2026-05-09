@@ -6,9 +6,12 @@ from pathlib import Path
 
 import uvicorn
 
+import json
+
 from . import __version__
 from .config import load_config, resolve_runtime
 from .init_cmd import run_init
+from .notes import render_markdown
 from .providers import known_providers, make_provider
 from .server import create_app
 from .sources import LocalSource, SourceError
@@ -38,6 +41,24 @@ def _build_parser() -> argparse.ArgumentParser:
     serve = sub.add_parser("serve", help="Run the inq server (default).")
     _add_serve_args(serve)
     serve.set_defaults(_action="serve")
+
+    notes = sub.add_parser(
+        "notes",
+        help="Print saved threads (Q&A and notes) for a directory as markdown.",
+    )
+    notes.add_argument(
+        "--root",
+        type=Path,
+        default=Path.cwd(),
+        help="directory whose threads to print (default cwd)",
+    )
+    notes.add_argument(
+        "--file",
+        default=None,
+        help="filter to threads anchored to this file path (relative to --root)",
+    )
+    notes.add_argument("--json", action="store_true", help="emit raw JSON instead of markdown")
+    notes.set_defaults(_action="notes")
 
     # Default subcommand: serve. Add the same args at the top level so
     # `inq --port 9090` works without a subcommand.
@@ -79,7 +100,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "init" or action == "init":
         return run_init()
 
+    if args.command == "notes" or action == "notes":
+        return _run_notes(args, parser)
+
     return _run_serve(args, parser)
+
+
+def _run_notes(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    root = args.root.expanduser().resolve()
+    if not root.is_dir():
+        parser.error(f"--root is not a directory: {root}")
+    try:
+        source = LocalSource(root=root)
+    except SourceError as exc:
+        parser.error(str(exc))
+    threads = ThreadStore(source_label=source.label).list()
+    if args.json:
+        print(json.dumps({"source": source.label, "threads": threads}, indent=2))
+        return 0
+    sys.stdout.write(render_markdown(source.label, threads, filter_file=args.file))
+    return 0
 
 
 def _run_serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
