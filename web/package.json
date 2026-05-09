@@ -30,7 +30,9 @@
     "codemirror": "^6.0.2",
     "pdfjs-dist": "^5.7.284",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
