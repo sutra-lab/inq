@@ -14,13 +14,14 @@ import { bundleForTheme } from '../lib/cmTheme'
 import type { Theme } from '../lib/theme'
 
 export type Anchor = { startLine: number; endLine: number }
+export type CaptureMode = 'ai' | 'comment'
 
 type Props = {
   value: string
   language: string
   anchors: Anchor[]
   theme: Theme
-  onAsk: (anchor: Anchor) => void
+  onCapture: (anchor: Anchor, mode: CaptureMode) => void
 }
 
 const setAnchorsEffect = StateEffect.define<Anchor[]>()
@@ -59,34 +60,32 @@ const anchorField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 })
 
-export function CodeEditor({ value, language, anchors, theme, onAsk }: Props) {
+export function CodeEditor({ value, language, anchors, theme, onCapture }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const langCompartment = useRef(new Compartment()).current
   const themeCompartment = useRef(new Compartment()).current
-  const onAskRef = useRef(onAsk)
+  const onCaptureRef = useRef(onCapture)
 
   useEffect(() => {
-    onAskRef.current = onAsk
-  }, [onAsk])
+    onCaptureRef.current = onCapture
+  }, [onCapture])
 
   // Mount once
   useEffect(() => {
     if (!hostRef.current) return
 
+    const captureAt = (view: EditorView, mode: CaptureMode) => {
+      const sel = view.state.selection.main
+      const startLine = view.state.doc.lineAt(sel.from).number
+      const endLine = view.state.doc.lineAt(sel.to).number
+      onCaptureRef.current({ startLine, endLine }, mode)
+      return true
+    }
     const askKeymap = Prec.highest(
       keymap.of([
-        {
-          key: '@',
-          preventDefault: true,
-          run: (view) => {
-            const sel = view.state.selection.main
-            const startLine = view.state.doc.lineAt(sel.from).number
-            const endLine = view.state.doc.lineAt(sel.to).number
-            onAskRef.current({ startLine, endLine })
-            return true
-          },
-        },
+        { key: '@', preventDefault: true, run: (v) => captureAt(v, 'ai') },
+        { key: '#', preventDefault: true, run: (v) => captureAt(v, 'comment') },
       ]),
     )
 

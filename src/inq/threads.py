@@ -32,6 +32,7 @@ class StoredThread(BaseModel):
     id: str
     file: str
     kind: Literal["text", "pdf"]
+    mode: Literal["ai", "comment"] = "ai"
     language: str
     anchor: ThreadAnchor
     messages: list[ThreadMessage]

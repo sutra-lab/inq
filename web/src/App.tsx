@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { FileTree } from './components/FileTree'
-import { CodeEditor, type Anchor } from './components/CodeEditor'
+import { CodeEditor, type Anchor, type CaptureMode } from './components/CodeEditor'
 import { AskBar } from './components/AskBar'
 import { ResponsePanel } from './components/ResponsePanel'
 import {
@@ -23,6 +23,7 @@ export default function App() {
   const [fileError, setFileError] = useState<string | null>(null)
 
   const [pendingAnchor, setPendingAnchor] = useState<Anchor | null>(null)
+  const [pendingMode, setPendingMode] = useState<CaptureMode>('ai')
   const [threads, dispatch] = useReducer(threadsReducer, [] as Thread[])
   const threadsRef = useRef(threads)
   threadsRef.current = threads
@@ -109,55 +110,63 @@ export default function App() {
   const currentKind: 'text' | 'pdf' =
     fileData?.kind === 'pdf' ? 'pdf' : 'text'
 
-  const handleAsk = useCallback((anchor: Anchor) => {
+  const handleCapture = useCallback((anchor: Anchor, mode: CaptureMode) => {
     setPendingAnchor(anchor)
+    setPendingMode(mode)
   }, [])
 
   const handleSubmit = useCallback(
-    (question: string) => {
+    (body: string) => {
       if (!pendingAnchor || !fileData || !selectedPath) return
       const id = crypto.randomUUID()
       const file = selectedPath
       const kind: 'text' | 'pdf' = fileData.kind === 'pdf' ? 'pdf' : 'text'
       const language = fileData.kind === 'text' ? fileData.language : kind
+      const mode = pendingMode
       dispatch({
         type: 'START',
         id,
         file,
         language,
         kind,
+        mode,
         anchor: pendingAnchor,
-        question,
+        body,
       })
       setPendingAnchor(null)
-      void ask(
-        {
-          question,
-          file,
-          anchor: pendingAnchor,
-          context_lines: 20,
-          full_file: false,
-          history: [],
-        },
-        {
-          onStart: ({ model }) => dispatch({ type: 'START_INFO', id, model }),
-          onToken: (text) => dispatch({ type: 'TOKEN', id, text }),
-          onError: (error) => dispatch({ type: 'ERROR', id, error }),
-          onDone: () => dispatch({ type: 'DONE', id }),
-        },
-      )
+      if (mode === 'ai') {
+        void ask(
+          {
+            question: body,
+            file,
+            anchor: pendingAnchor,
+            context_lines: 20,
+            full_file: false,
+            history: [],
+          },
+          {
+            onStart: ({ model }) => dispatch({ type: 'START_INFO', id, model }),
+            onToken: (text) => dispatch({ type: 'TOKEN', id, text }),
+            onError: (error) => dispatch({ type: 'ERROR', id, error }),
+            onDone: () => dispatch({ type: 'DONE', id }),
+          },
+        )
+      }
+      // mode === 'comment': nothing else to do — reducer set status='done',
+      // and the persistence effect will save it on the next render.
     },
-    [pendingAnchor, fileData, selectedPath],
+    [pendingAnchor, pendingMode, fileData, selectedPath],
   )
 
-  const handleFollowup = useCallback((id: string, question: string) => {
+  const handleFollowup = useCallback((id: string, body: string) => {
     const t = threadsRef.current.find((x) => x.id === id)
     if (!t) return
+    dispatch({ type: 'FOLLOWUP', id, body })
+    if (t.mode !== 'ai') return
     const history = priorHistory(t)
-    dispatch({ type: 'FOLLOWUP', id, question })
     void ask(
       {
-        question,
+        question: body,
         file: t.file,
         anchor: t.anchor,
         context_lines: 20,
@@ -250,7 +259,7 @@ export default function App() {
                 language={fileData.language}
                 anchors={anchorsForCurrentFile}
                 theme={theme}
-                onAsk={handleAsk}
+                onCapture={handleCapture}
               />
             )}
             {fileData?.kind === 'pdf' && selectedPath && (
@@ -258,7 +267,7 @@ export default function App() {
                 url={rawUrl(selectedPath)}
                 pageCount={fileData.page_count}
                 anchorPages={anchorPagesForCurrentFile}
-                onAsk={handleAsk}
+                onCapture={handleCapture}
               />
             )}
             {!selectedPath && !loadingFile && (
@@ -273,6 +282,7 @@ export default function App() {
           <AskBar
             anchor={pendingAnchor}
             fileKind={currentKind}
+            mode={pendingMode}
             onSubmit={handleSubmit}
             onCancel={() => setPendingAnchor(null)}
           />

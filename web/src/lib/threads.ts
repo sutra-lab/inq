@@ -1,12 +1,14 @@
 export type Role = 'user' | 'assistant'
 export type Message = { role: Role; content: string }
 export type ThreadStatus = 'streaming' | 'done' | 'error'
+export type ThreadMode = 'ai' | 'comment'
 
 export type Thread = {
   id: string
   file: string
   language: string
   kind: 'text' | 'pdf'
+  mode: ThreadMode
   anchor: { startLine: number; endLine: number }
   messages: Message[]
   status: ThreadStatus
@@ -22,10 +24,11 @@ export type ThreadAction =
       file: string
       language: string
       kind: 'text' | 'pdf'
+      mode: ThreadMode
       anchor: { startLine: number; endLine: number }
-      question: string
+      body: string
     }
-  | { type: 'FOLLOWUP'; id: string; question: string }
+  | { type: 'FOLLOWUP'; id: string; body: string }
   | { type: 'START_INFO'; id: string; model: string }
   | { type: 'TOKEN'; id: string; text: string }
   | { type: 'ERROR'; id: string; error: string }
@@ -43,30 +46,41 @@ export function threadsReducer(state: Thread[], action: ThreadAction): Thread[] 
           file: action.file,
           language: action.language,
           kind: action.kind,
+          mode: action.mode,
           anchor: action.anchor,
-          messages: [
-            { role: 'user', content: action.question },
-            { role: 'assistant', content: '' },
-          ],
-          status: 'streaming',
+          messages:
+            action.mode === 'ai'
+              ? [
+                  { role: 'user', content: action.body },
+                  { role: 'assistant', content: '' },
+                ]
+              : [{ role: 'user', content: action.body }],
+          status: action.mode === 'ai' ? 'streaming' : 'done',
         },
         ...state,
       ]
     case 'FOLLOWUP':
-      return state.map((t) =>
-        t.id === action.id
-          ? {
-              ...t,
-              status: 'streaming',
-              error: undefined,
-              messages: [
-                ...t.messages,
-                { role: 'user', content: action.question },
-                { role: 'assistant', content: '' },
-              ],
-            }
-          : t,
-      )
+      return state.map((t) => {
+        if (t.id !== action.id) return t
+        if (t.mode === 'ai') {
+          return {
+            ...t,
+            status: 'streaming',
+            error: undefined,
+            messages: [
+              ...t.messages,
+              { role: 'user', content: action.body },
+              { role: 'assistant', content: '' },
+            ],
+          }
+        }
+        return {
+          ...t,
+          status: 'done',
+          error: undefined,
+          messages: [...t.messages, { role: 'user', content: action.body }],
+        }
+      })
     case 'TOKEN':
       return state.map((t) => {
         if (t.id !== action.id) return t

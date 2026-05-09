@@ -58,6 +58,10 @@ function ThreadCard({
   return (
     <article className="border-b border-border">
       <header className="flex items-baseline gap-2 px-3 h-7 text-[10px] bg-bg-elevated">
+        <span className="text-accent uppercase tracking-[0.2em] font-semibold shrink-0">
+          {thread.mode === 'comment' ? '# note' : '@ ask'}
+        </span>
+        <span className="text-fg-mute">·</span>
         <button
           onClick={() => onFocusAnchor(thread.file, thread.anchor)}
           className="text-fg hover:text-accent truncate"
@@ -87,6 +91,7 @@ function ThreadCard({
             key={i}
             role={m.role}
             content={m.content}
+            mode={thread.mode}
             streaming={
               thread.status === 'streaming' &&
               i === thread.messages.length - 1 &&
@@ -102,7 +107,10 @@ function ThreadCard({
       </div>
 
       {thread.status !== 'streaming' && (
-        <FollowupInput onSubmit={(q) => onFollowup(thread.id, q)} />
+        <FollowupInput
+          mode={thread.mode}
+          onSubmit={(q) => onFollowup(thread.id, q)}
+        />
       )}
     </article>
   )
@@ -111,12 +119,15 @@ function ThreadCard({
 function Message({
   role,
   content,
+  mode,
   streaming,
 }: {
   role: 'user' | 'assistant'
   content: string
+  mode: 'ai' | 'comment'
   streaming: boolean
 }) {
+  const userSigil = mode === 'comment' ? '#' : '›'
   return (
     <div className="flex gap-2 px-3 py-2 text-[12.5px] leading-[1.55]">
       <span
@@ -126,7 +137,7 @@ function Message({
             : 'text-fg-mute select-none shrink-0'
         }
       >
-        {role === 'user' ? '›' : '·'}
+        {role === 'user' ? userSigil : '·'}
       </span>
       <div className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fg">
         {content}
@@ -138,11 +149,19 @@ function Message({
   )
 }
 
-function FollowupInput({ onSubmit }: { onSubmit: (q: string) => void }) {
+function FollowupInput({
+  mode,
+  onSubmit,
+}: {
+  mode: 'ai' | 'comment'
+  onSubmit: (q: string) => void
+}) {
   const [v, setV] = useState('')
+  const sigil = mode === 'comment' ? '#' : '›'
+  const placeholder = mode === 'comment' ? 'add another note…' : 'follow up…'
   return (
     <div className="flex items-start gap-2 px-3 py-2 border-t border-border bg-bg-elevated">
-      <span className="text-fg-mute select-none pt-1">›</span>
+      <span className="text-fg-mute select-none pt-1">{sigil}</span>
       <textarea
         value={v}
         onChange={(e) => setV(e.target.value)}
@@ -157,7 +176,7 @@ function FollowupInput({ onSubmit }: { onSubmit: (q: string) => void }) {
           }
         }}
         rows={1}
-        placeholder="follow up…"
+        placeholder={placeholder}
         className="flex-1 bg-transparent text-fg placeholder:text-fg-mute resize-none outline-none border-0 text-[12.5px] leading-[1.5] py-0.5"
         style={{ minHeight: '20px', maxHeight: '120px' }}
         onInput={(e) => {

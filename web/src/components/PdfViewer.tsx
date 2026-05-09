@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import type { Anchor } from './CodeEditor'
+import type { Anchor, CaptureMode } from './CodeEditor'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -9,17 +9,17 @@ type Props = {
   url: string
   pageCount: number
   anchorPages: number[]
-  onAsk: (anchor: Anchor) => void
+  onCapture: (anchor: Anchor, mode: CaptureMode) => void
 }
 
-export function PdfViewer({ url, pageCount, anchorPages, onAsk }: Props) {
+export function PdfViewer({ url, pageCount, anchorPages, onCapture }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null)
-  const onAskRef = useRef(onAsk)
+  const onCaptureRef = useRef(onCapture)
   useEffect(() => {
-    onAskRef.current = onAsk
-  }, [onAsk])
+    onCaptureRef.current = onCapture
+  }, [onCapture])
 
   const [doc, setDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [page, setPage] = useState(1)
@@ -98,17 +98,19 @@ export function PdfViewer({ url, pageCount, anchorPages, onAsk }: Props) {
     }
   }, [doc, page, scale])
 
-  // @ keybind for PDFs — anchored to the current page.
+  // @ asks AI · # saves a comment — both anchored to the current page.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== '@') return
+      const mode: CaptureMode | null =
+        e.key === '@' ? 'ai' : e.key === '#' ? 'comment' : null
+      if (!mode) return
       const tag = (document.activeElement?.tagName || '').toLowerCase()
       if (tag === 'textarea' || tag === 'input') return
       const within = containerRef.current?.contains(document.activeElement) ?? false
       const focusedSelf = document.activeElement === document.body || within
       if (!focusedSelf) return
       e.preventDefault()
-      onAskRef.current({ startLine: page, endLine: page })
+      onCaptureRef.current({ startLine: page, endLine: page }, mode)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
