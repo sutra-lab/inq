@@ -6,6 +6,7 @@ export type Thread = {
   id: string
   file: string
   language: string
+  kind: 'text' | 'pdf'
   anchor: { startLine: number; endLine: number }
   messages: Message[]
   status: ThreadStatus
@@ -19,6 +20,7 @@ export type ThreadAction =
       id: string
       file: string
       language: string
+      kind: 'text' | 'pdf'
       anchor: { startLine: number; endLine: number }
       question: string
     }
@@ -37,6 +39,7 @@ export function threadsReducer(state: Thread[], action: ThreadAction): Thread[] 
           id: action.id,
           file: action.file,
           language: action.language,
+          kind: action.kind,
           anchor: action.anchor,
           messages: [
             { role: 'user', content: action.question },

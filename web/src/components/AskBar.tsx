@@ -3,11 +3,12 @@ import type { Anchor } from './CodeEditor'
 
 type Props = {
   anchor: Anchor | null
+  fileKind?: 'text' | 'pdf'
   onSubmit: (question: string) => void
   onCancel: () => void
 }
 
-export function AskBar({ anchor, onSubmit, onCancel }: Props) {
+export function AskBar({ anchor, fileKind = 'text', onSubmit, onCancel }: Props) {
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -41,9 +42,11 @@ export function AskBar({ anchor, onSubmit, onCancel }: Props) {
   }
 
   const rangeLabel =
-    anchor.startLine === anchor.endLine
-      ? `line ${anchor.startLine}`
-      : `lines ${anchor.startLine}–${anchor.endLine}`
+    fileKind === 'pdf'
+      ? `page ${anchor.startLine}`
+      : anchor.startLine === anchor.endLine
+        ? `line ${anchor.startLine}`
+        : `lines ${anchor.startLine}–${anchor.endLine}`
 
   return (
     <div className="border-t border-border bg-bg-elevated">
