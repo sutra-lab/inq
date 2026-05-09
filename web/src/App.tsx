@@ -11,6 +11,7 @@ import {
   saveThread,
   type FileData,
 } from './api'
+import { MarkdownViewer } from './components/MarkdownViewer'
 import { PdfViewer } from './components/PdfViewer'
 import { SourcePicker } from './components/SourcePicker'
 import { ask } from './lib/sse'
@@ -119,6 +120,14 @@ export default function App() {
 
   const currentKind: 'text' | 'pdf' =
     fileData?.kind === 'pdf' ? 'pdf' : 'text'
+
+  const isMarkdown =
+    fileData?.kind === 'text' && fileData.language === 'markdown'
+  const [mdView, setMdView] = useState<'rendered' | 'source'>('rendered')
+  // Reset to rendered each time a new markdown file opens.
+  useEffect(() => {
+    if (isMarkdown) setMdView('rendered')
+  }, [selectedPath, isMarkdown])
 
   const handleCapture = useCallback((anchor: Anchor, mode: CaptureMode) => {
     setPendingAnchor(anchor)
@@ -250,20 +259,43 @@ export default function App() {
           <span className="text-fg truncate">
             {fileData?.name ?? selectedPath ?? '—'}
           </span>
-          {fileData && (
-            <span className="ml-auto text-fg-mute">
-              {fileData.kind === 'text' && (
-                <>
-                  {fileData.language} · {formatSize(fileData.size)}
-                </>
-              )}
-              {fileData.kind === 'pdf' && (
-                <>
-                  pdf · {fileData.page_count}p · {formatSize(fileData.size)}
-                </>
-              )}
-            </span>
-          )}
+          <span className="ml-auto flex items-center gap-3 text-fg-mute">
+            {isMarkdown && (
+              <button
+                onClick={() =>
+                  setMdView((v) => (v === 'rendered' ? 'source' : 'rendered'))
+                }
+                title="toggle rendered / source"
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em]"
+              >
+                <span
+                  className={
+                    mdView === 'rendered' ? 'text-accent' : 'text-fg-dim'
+                  }
+                >
+                  rendered
+                </span>
+                <span className="text-fg-mute">/</span>
+                <span
+                  className={
+                    mdView === 'source' ? 'text-accent' : 'text-fg-dim'
+                  }
+                >
+                  source
+                </span>
+              </button>
+            )}
+            {fileData && fileData.kind === 'text' && (
+              <span>
+                {fileData.language} · {formatSize(fileData.size)}
+              </span>
+            )}
+            {fileData && fileData.kind === 'pdf' && (
+              <span>
+                pdf · {fileData.page_count}p · {formatSize(fileData.size)}
+              </span>
+            )}
+          </span>
         </PanelHeader>
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-hidden">
@@ -276,15 +308,23 @@ export default function App() {
                 file skipped: {fileData.skipped ?? fileData.kind}
               </div>
             )}
-            {fileData?.kind === 'text' && (
-              <CodeEditor
-                value={fileData.content}
-                language={fileData.language}
+            {fileData?.kind === 'text' && isMarkdown && mdView === 'rendered' && (
+              <MarkdownViewer
+                content={fileData.content}
                 anchors={anchorsForCurrentFile}
-                theme={theme}
                 onCapture={handleCapture}
               />
             )}
+            {fileData?.kind === 'text' &&
+              !(isMarkdown && mdView === 'rendered') && (
+                <CodeEditor
+                  value={fileData.content}
+                  language={fileData.language}
+                  anchors={anchorsForCurrentFile}
+                  theme={theme}
+                  onCapture={handleCapture}
+                />
+              )}
             {fileData?.kind === 'pdf' && selectedPath && (
               <PdfViewer
                 url={rawUrl(selectedPath, currentSource)}
