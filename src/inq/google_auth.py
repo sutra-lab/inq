@@ -153,16 +153,22 @@ def build_auth_url(
     state: str,
     *,
     scopes: list[str] | None = None,
+    prompt: str = "consent",
 ) -> str:
     """Build the Google OAuth consent URL. Used by both the CLI loopback and
-    the in-browser web flow."""
+    the in-browser web flow.
+
+    ``prompt`` accepts Google's standard values, e.g. ``"consent"`` (default),
+    ``"select_account"`` (force the account picker — useful when the current
+    token is for the wrong account), or ``"select_account consent"`` (both).
+    """
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": " ".join(scopes or DEFAULT_SCOPES),
         "access_type": "offline",
-        "prompt": "consent",
+        "prompt": prompt,
         "state": state,
         "include_granted_scopes": "true",
     }
