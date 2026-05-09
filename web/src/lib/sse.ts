@@ -50,8 +50,10 @@ export async function ask(
   req: AskRequest,
   handlers: AskHandlers,
   signal?: AbortSignal,
+  source?: string,
 ): Promise<void> {
-  const res = await fetch('/api/ask', {
+  const url = source ? `/api/ask?source=${encodeURIComponent(source)}` : '/api/ask'
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(req),

@@ -12,11 +12,13 @@ import {
   type FileData,
 } from './api'
 import { PdfViewer } from './components/PdfViewer'
+import { SourcePicker } from './components/SourcePicker'
 import { ask } from './lib/sse'
 import { priorHistory, threadsReducer, type Thread } from './lib/threads'
 import { useTheme, type Theme } from './lib/theme'
 
 export default function App() {
+  const [currentSource, setCurrentSource] = useState<string>('local')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [fileData, setFileData] = useState<FileData | null>(null)
   const [loadingFile, setLoadingFile] = useState(false)
@@ -27,31 +29,35 @@ export default function App() {
   const [threads, dispatch] = useReducer(threadsReducer, [] as Thread[])
   const threadsRef = useRef(threads)
   threadsRef.current = threads
+  const currentSourceRef = useRef(currentSource)
+  currentSourceRef.current = currentSource
 
   const [theme, , toggleTheme] = useTheme()
   const [sourceLabel, setSourceLabel] = useState<string>('')
 
-  // Load persisted threads once on mount.
+  // Load persisted threads when the source changes (and on mount).
   useEffect(() => {
     let cancelled = false
-    fetchThreads()
+    setSelectedPath(null)
+    setFileData(null)
+    fetchThreads(currentSource)
       .then((res) => {
         if (cancelled) return
         setSourceLabel(res.source)
-        // Drop any partial threads that were streaming when the tab last closed.
         const cleaned = res.threads.map((t) =>
           t.status === 'streaming' ? { ...t, status: 'error' as const, error: 'interrupted' } : t,
         )
         dispatch({ type: 'LOAD', threads: cleaned })
+        lastPersisted.current = new Map()
       })
       .catch((e) => {
-        // Non-fatal: missing /api/threads (older server) or transient error.
         console.warn('[inq] could not load persisted threads:', e)
       })
     return () => {
       cancelled = true
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSource])
 
   // Persist threads when they reach a terminal state (done / error). Track the
   // last persisted status per id so we don't fire on every TOKEN.
@@ -62,7 +68,9 @@ export default function App() {
       const isTerminal = t.status === 'done' || t.status === 'error'
       if (isTerminal && prev !== t.status) {
         lastPersisted.current.set(t.id, t.status)
-        saveThread(t).catch((e) => console.warn('[inq] saveThread failed:', e))
+        saveThread(t, currentSourceRef.current).catch((e) =>
+          console.warn('[inq] saveThread failed:', e),
+        )
       }
     }
   }, [threads])
@@ -78,7 +86,7 @@ export default function App() {
     setLoadingFile(true)
     setFileError(null)
     setPendingAnchor(null)
-    fetchFile(selectedPath)
+    fetchFile(selectedPath, currentSource)
       .then((d) => {
         if (!cancelled) setFileData(d)
       })
@@ -94,7 +102,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [selectedPath])
+  }, [selectedPath, currentSource])
 
   // Anchors for the currently open file (used to draw line markers)
   const anchorsForCurrentFile = useMemo<Anchor[]>(() => {
@@ -152,12 +160,14 @@ export default function App() {
             onError: (error) => dispatch({ type: 'ERROR', id, error }),
             onDone: () => dispatch({ type: 'DONE', id }),
           },
+          undefined,
+          currentSource,
         )
       }
       // mode === 'comment': nothing else to do — reducer set status='done',
       // and the persistence effect will save it on the next render.
     },
-    [pendingAnchor, pendingMode, fileData, selectedPath],
+    [pendingAnchor, pendingMode, fileData, selectedPath, currentSource],
   )
 
   const handleFollowup = useCallback((id: string, body: string) => {
@@ -180,13 +190,17 @@ export default function App() {
         onError: (error) => dispatch({ type: 'ERROR', id, error }),
         onDone: () => dispatch({ type: 'DONE', id }),
       },
+      undefined,
+      currentSourceRef.current,
     )
   }, [])
 
   const handleRemove = useCallback((id: string) => {
     dispatch({ type: 'REMOVE', id })
     lastPersisted.current.delete(id)
-    deleteThread(id).catch((e) => console.warn('[inq] deleteThread failed:', e))
+    deleteThread(id, currentSourceRef.current).catch((e) =>
+      console.warn('[inq] deleteThread failed:', e),
+    )
   }, [])
 
   const handleFocusAnchor = useCallback(
@@ -216,11 +230,16 @@ export default function App() {
       <div className="flex-1 min-h-0 flex">
       {/* Left: file tree */}
       <aside className="w-64 shrink-0 border-r border-border flex flex-col">
-        <PanelHeader>
-          <Label>files</Label>
-        </PanelHeader>
+        <SourcePicker
+          currentSource={currentSource}
+          onSourceChange={setCurrentSource}
+        />
         <div className="flex-1 overflow-y-auto">
-          <FileTree selectedPath={selectedPath} onSelect={setSelectedPath} />
+          <FileTree
+            source={currentSource}
+            selectedPath={selectedPath}
+            onSelect={setSelectedPath}
+          />
         </div>
       </aside>
 
@@ -228,7 +247,9 @@ export default function App() {
       <main className="flex-1 min-w-0 flex flex-col">
         <PanelHeader>
           <Label>read</Label>
-          <span className="text-fg truncate">{selectedPath ?? '—'}</span>
+          <span className="text-fg truncate">
+            {fileData?.name ?? selectedPath ?? '—'}
+          </span>
           {fileData && (
             <span className="ml-auto text-fg-mute">
               {fileData.kind === 'text' && (
@@ -266,7 +287,7 @@ export default function App() {
             )}
             {fileData?.kind === 'pdf' && selectedPath && (
               <PdfViewer
-                url={rawUrl(selectedPath)}
+                url={rawUrl(selectedPath, currentSource)}
                 pageCount={fileData.page_count}
                 anchorPages={anchorPagesForCurrentFile}
                 onCapture={handleCapture}
