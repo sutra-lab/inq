@@ -2,19 +2,22 @@ import { useEffect, useState } from 'react'
 import { fetchTree, type TreeNode } from '../api'
 
 type Props = {
+  source: string
   selectedPath: string | null
   onSelect: (path: string) => void
 }
 
-export function FileTree({ selectedPath, onSelect }: Props) {
+export function FileTree({ source, selectedPath, onSelect }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchTree('', 1)
+    setRoots(null)
+    setError(null)
+    fetchTree('', 1, source)
       .then((t) => setRoots(t.children))
       .catch((e) => setError(String(e)))
-  }, [])
+  }, [source])
 
   if (error) {
     return <div className="px-3 py-2 text-[11px] text-danger break-words">{error}</div>
@@ -30,6 +33,7 @@ export function FileTree({ selectedPath, onSelect }: Props) {
           key={n.path}
           node={n}
           depth={0}
+          source={source}
           selectedPath={selectedPath}
           onSelect={onSelect}
         />
@@ -41,11 +45,12 @@ export function FileTree({ selectedPath, onSelect }: Props) {
 type NodeProps = {
   node: TreeNode
   depth: number
+  source: string
   selectedPath: string | null
   onSelect: (path: string) => void
 }
 
-function Node({ node, depth, selectedPath, onSelect }: NodeProps) {
+function Node({ node, depth, source, selectedPath, onSelect }: NodeProps) {
   const [open, setOpen] = useState(false)
   const [children, setChildren] = useState<TreeNode[] | null>(node.children ?? null)
   const [loading, setLoading] = useState(false)
@@ -61,7 +66,7 @@ function Node({ node, depth, selectedPath, onSelect }: NodeProps) {
     if (!open && children == null) {
       setLoading(true)
       try {
-        const t = await fetchTree(node.path, 1)
+        const t = await fetchTree(node.path, 1, source)
         setChildren(t.children)
       } catch {
         setChildren([])
@@ -113,6 +118,7 @@ function Node({ node, depth, selectedPath, onSelect }: NodeProps) {
               key={c.path}
               node={c}
               depth={depth + 1}
+              source={source}
               selectedPath={selectedPath}
               onSelect={onSelect}
             />
