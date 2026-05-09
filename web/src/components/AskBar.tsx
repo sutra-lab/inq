@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Anchor } from './CodeEditor'
+import type { Anchor, CaptureMode } from './CodeEditor'
 
 type Props = {
   anchor: Anchor | null
   fileKind?: 'text' | 'pdf'
-  onSubmit: (question: string) => void
+  mode: CaptureMode
+  onSubmit: (body: string) => void
   onCancel: () => void
 }
 
-export function AskBar({ anchor, fileKind = 'text', onSubmit, onCancel }: Props) {
+export function AskBar({ anchor, fileKind = 'text', mode, onSubmit, onCancel }: Props) {
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -17,14 +18,14 @@ export function AskBar({ anchor, fileKind = 'text', onSubmit, onCancel }: Props)
       setValue('')
       inputRef.current?.focus()
     }
-  }, [anchor])
+  }, [anchor, mode])
 
   if (!anchor) return null
 
   const submit = () => {
-    const q = value.trim()
-    if (!q) return
-    onSubmit(q)
+    const v = value.trim()
+    if (!v) return
+    onSubmit(v)
     setValue('')
   }
 
@@ -48,22 +49,34 @@ export function AskBar({ anchor, fileKind = 'text', onSubmit, onCancel }: Props)
         ? `line ${anchor.startLine}`
         : `lines ${anchor.startLine}–${anchor.endLine}`
 
+  const isComment = mode === 'comment'
+  const sigil = isComment ? '#' : '@'
+  const verb = isComment ? 'comment' : 'ask'
+  const placeholder = isComment
+    ? 'leave a note for this region…'
+    : 'ask about the highlighted region…'
+  const helpRight = isComment
+    ? 'enter to save · esc to cancel'
+    : 'enter to send · esc to cancel'
+
   return (
     <div className="border-t border-border bg-bg-elevated">
       <div className="flex items-center gap-2 px-3 h-7 border-b border-border text-[10px]">
-        <span className="text-accent uppercase tracking-[0.2em] font-semibold">@ ask</span>
+        <span className="text-accent uppercase tracking-[0.2em] font-semibold">
+          {sigil} {verb}
+        </span>
         <span className="text-fg-mute">·</span>
         <span className="text-fg">{rangeLabel}</span>
-        <span className="ml-auto text-fg-mute">enter to send · esc to cancel</span>
+        <span className="ml-auto text-fg-mute">{helpRight}</span>
       </div>
       <div className="flex items-start gap-2 p-2">
-        <span className="text-accent pt-1.5 select-none">›</span>
+        <span className="text-accent pt-1.5 select-none">{sigil}</span>
         <textarea
           ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="ask about the highlighted region…"
+          placeholder={placeholder}
           rows={1}
           className="flex-1 bg-transparent text-fg placeholder:text-fg-mute resize-none outline-none border-0 leading-[1.5] py-1"
           style={{ minHeight: '24px', maxHeight: '160px' }}
