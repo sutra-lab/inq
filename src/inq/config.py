@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,6 +12,25 @@ CONFIG_PATH = Path(
     os.environ.get("INQ_CONFIG")
     or (Path.home() / ".config" / "inq" / "config.toml")
 )
+
+
+def _keychain_get(account: str, service: str = "inq") -> str | None:
+    """Read a generic-password secret from the macOS keychain. No-op elsewhere."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", service, "-a", account, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode != 0:
+        return None
+    val = out.stdout.strip()
+    return val or None
 
 
 @dataclass
@@ -66,6 +87,13 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         google.client_id = env_cid
     if env_cs:
         google.client_secret = env_cs
+
+    # macOS keychain fallback for any missing field.
+    # Stored under: service="inq", account="google_oauth_client_id" / "..._secret"
+    if not google.client_id:
+        google.client_id = _keychain_get("google_oauth_client_id")
+    if not google.client_secret:
+        google.client_secret = _keychain_get("google_oauth_client_secret")
 
     return Config(provider=provider, model=model, api_keys=api_keys, google_oauth=google)
 
