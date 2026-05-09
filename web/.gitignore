@@ -3,3 +3,6 @@ dist
 .vite
 *.local
 *.log
+
+# auto-synced from pdfjs-dist by `npm run sync-pdfjs`
+public/pdfjs/

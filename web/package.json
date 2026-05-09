@@ -4,10 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run sync-pdfjs && vite",
+    "build": "npm run sync-pdfjs && tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "postinstall": "npm run sync-pdfjs",
+    "sync-pdfjs": "rm -rf public/pdfjs && mkdir -p public/pdfjs && cp -R node_modules/pdfjs-dist/cmaps public/pdfjs/cmaps && cp -R node_modules/pdfjs-dist/standard_fonts public/pdfjs/standard_fonts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
