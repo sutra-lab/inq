@@ -36,7 +36,15 @@ export function PdfViewer({ url, pageCount, anchorPages, onCapture }: Props) {
   useEffect(() => {
     let cancelled = false
     setError(null)
-    const task = pdfjsLib.getDocument({ url })
+    const task = pdfjsLib.getDocument({
+      url,
+      // Pdfjs ships these as separate directories inside node_modules; we copy
+      // them into the build via vite-plugin-static-copy. Without these,
+      // ligatures (fi, fl) and Symbol-font glyphs (∂, ∇, parens) render wrong.
+      cMapUrl: '/pdfjs/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/pdfjs/standard_fonts/',
+    })
     task.promise
       .then((d) => {
         if (cancelled) {
