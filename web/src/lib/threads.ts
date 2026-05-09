@@ -15,6 +15,7 @@ export type Thread = {
 }
 
 export type ThreadAction =
+  | { type: 'LOAD'; threads: Thread[] }
   | {
       type: 'START'
       id: string
@@ -33,6 +34,8 @@ export type ThreadAction =
 
 export function threadsReducer(state: Thread[], action: ThreadAction): Thread[] {
   switch (action.type) {
+    case 'LOAD':
+      return action.threads
     case 'START':
       return [
         {
