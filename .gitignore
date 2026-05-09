@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+
+# Node
+node_modules/
+.vite/
+*.tsbuildinfo
+
+# Build artifacts (generated, don't commit)
+src/inq/web/
+web/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local config / secrets
+.env
+.env.local
+*.local
+.inqrc
+
+# Claude Code project state
+.claude/
