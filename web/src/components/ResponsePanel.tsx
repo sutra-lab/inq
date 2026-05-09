@@ -49,9 +49,11 @@ function ThreadCard({
   onFocusAnchor: (file: string, anchor: { startLine: number; endLine: number }) => void
 }) {
   const rangeLabel =
-    thread.anchor.startLine === thread.anchor.endLine
-      ? `:${thread.anchor.startLine}`
-      : `:${thread.anchor.startLine}–${thread.anchor.endLine}`
+    thread.kind === 'pdf'
+      ? `:p${thread.anchor.startLine}`
+      : thread.anchor.startLine === thread.anchor.endLine
+        ? `:${thread.anchor.startLine}`
+        : `:${thread.anchor.startLine}–${thread.anchor.endLine}`
 
   return (
     <article className="border-b border-border">

@@ -10,12 +10,31 @@ export type Tree = {
   children: TreeNode[]
 }
 
-export type FileData = {
-  path: string
-  language: string
-  content: string
-  size: number
-  skipped?: 'too_large' | 'binary' | 'encoding'
+export type FileKind = 'text' | 'pdf' | 'binary' | 'skipped'
+
+export type FileData =
+  | {
+      path: string
+      kind: 'text'
+      language: string
+      content: string
+      size: number
+    }
+  | {
+      path: string
+      kind: 'pdf'
+      size: number
+      page_count: number
+    }
+  | {
+      path: string
+      kind: 'binary' | 'skipped'
+      size: number
+      skipped?: string
+    }
+
+export function rawUrl(path: string): string {
+  return `/api/raw?path=${encodeURIComponent(path)}`
 }
 
 export async function fetchTree(path = '', depth = 1): Promise<Tree> {

@@ -10,6 +10,9 @@ class AskRequest:
 
     Built once per request from the HTTP body + the resolved file content,
     handed to the configured provider.
+
+    For text files, ``anchor_start``/``anchor_end`` are 1-based line numbers.
+    For PDFs, ``anchor_start`` is the 1-based page number (and end is ignored).
     """
 
     file_path: str
@@ -19,6 +22,7 @@ class AskRequest:
     question: str
     history: list[dict] = field(default_factory=list)
     context_lines: int = 20
+    context_pages: int = 1
     full_file: bool = False
     max_tokens: int = 2048
 

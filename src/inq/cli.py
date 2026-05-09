@@ -11,6 +11,7 @@ from .config import load_config, resolve_runtime
 from .init_cmd import run_init
 from .providers import known_providers, make_provider
 from .server import create_app
+from .sources import LocalSource, SourceError
 
 
 def _parse_size(s: str) -> int:
@@ -119,15 +120,15 @@ def _run_serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
         print(f"failed to initialise {resolved.provider}: {exc}", file=sys.stderr)
         return 2
 
-    app = create_app(
-        root=root,
-        provider=provider,
-        max_file_size=args.max_file_size,
-        dev=args.dev,
-    )
+    try:
+        source = LocalSource(root=root, max_file_size=args.max_file_size)
+    except SourceError as exc:
+        parser.error(str(exc))
+
+    app = create_app(source=source, provider=provider, dev=args.dev)
 
     print(f"inq {__version__}")
-    print(f"  root:     {root}")
+    print(f"  source:   {source.label}")
     print(f"  provider: {provider.name}  ({resolved.source})")
     print(f"  model:    {provider.model}")
     print(f"  serving:  http://{args.host}:{args.port}")

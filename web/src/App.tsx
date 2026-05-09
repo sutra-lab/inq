@@ -3,7 +3,8 @@ import { FileTree } from './components/FileTree'
 import { CodeEditor, type Anchor } from './components/CodeEditor'
 import { AskBar } from './components/AskBar'
 import { ResponsePanel } from './components/ResponsePanel'
-import { fetchFile, type FileData } from './api'
+import { fetchFile, rawUrl, type FileData } from './api'
+import { PdfViewer } from './components/PdfViewer'
 import { ask } from './lib/sse'
 import { priorHistory, threadsReducer, type Thread } from './lib/threads'
 import { useTheme, type Theme } from './lib/theme'
@@ -56,6 +57,16 @@ export default function App() {
     return threads.filter((t) => t.file === selectedPath).map((t) => t.anchor)
   }, [threads, selectedPath])
 
+  const anchorPagesForCurrentFile = useMemo<number[]>(() => {
+    if (!selectedPath) return []
+    return threads
+      .filter((t) => t.file === selectedPath && t.kind === 'pdf')
+      .map((t) => t.anchor.startLine)
+  }, [threads, selectedPath])
+
+  const currentKind: 'text' | 'pdf' =
+    fileData?.kind === 'pdf' ? 'pdf' : 'text'
+
   const handleAsk = useCallback((anchor: Anchor) => {
     setPendingAnchor(anchor)
   }, [])
@@ -65,12 +76,14 @@ export default function App() {
       if (!pendingAnchor || !fileData || !selectedPath) return
       const id = crypto.randomUUID()
       const file = selectedPath
-      const language = fileData.language
+      const kind: 'text' | 'pdf' = fileData.kind === 'pdf' ? 'pdf' : 'text'
+      const language = fileData.kind === 'text' ? fileData.language : kind
       dispatch({
         type: 'START',
         id,
         file,
         language,
+        kind,
         anchor: pendingAnchor,
         question,
       })
@@ -161,9 +174,18 @@ export default function App() {
         <PanelHeader>
           <Label>read</Label>
           <span className="text-fg truncate">{selectedPath ?? '—'}</span>
-          {fileData && !fileData.skipped && (
+          {fileData && (
             <span className="ml-auto text-fg-mute">
-              {fileData.language} · {formatSize(fileData.size)}
+              {fileData.kind === 'text' && (
+                <>
+                  {fileData.language} · {formatSize(fileData.size)}
+                </>
+              )}
+              {fileData.kind === 'pdf' && (
+                <>
+                  pdf · {fileData.page_count}p · {formatSize(fileData.size)}
+                </>
+              )}
             </span>
           )}
         </PanelHeader>
@@ -173,17 +195,25 @@ export default function App() {
             {fileError && (
               <div className="px-4 py-3 text-danger break-words">{fileError}</div>
             )}
-            {fileData?.skipped && (
+            {(fileData?.kind === 'binary' || fileData?.kind === 'skipped') && (
               <div className="px-4 py-3 text-warn">
-                file skipped: {fileData.skipped}
+                file skipped: {fileData.skipped ?? fileData.kind}
               </div>
             )}
-            {fileData && !fileData.skipped && (
+            {fileData?.kind === 'text' && (
               <CodeEditor
                 value={fileData.content}
                 language={fileData.language}
                 anchors={anchorsForCurrentFile}
                 theme={theme}
+                onAsk={handleAsk}
+              />
+            )}
+            {fileData?.kind === 'pdf' && selectedPath && (
+              <PdfViewer
+                url={rawUrl(selectedPath)}
+                pageCount={fileData.page_count}
+                anchorPages={anchorPagesForCurrentFile}
                 onAsk={handleAsk}
               />
             )}
@@ -198,6 +228,7 @@ export default function App() {
           </div>
           <AskBar
             anchor={pendingAnchor}
+            fileKind={currentKind}
             onSubmit={handleSubmit}
             onCancel={() => setPendingAnchor(null)}
           />

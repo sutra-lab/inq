@@ -45,5 +45,8 @@ npm-debug.log*
 *.local
 .inqrc
 
+# Test/sample PDFs at repo root — keep the repo a code repo
+/*.pdf
+
 # Claude Code project state
 .claude/
