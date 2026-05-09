@@ -4,10 +4,12 @@ import json
 import re
 import secrets
 import time
+from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import __version__
@@ -378,5 +380,11 @@ def create_app(
             "scope granted: drive.readonly",
             ok=True,
         )
+
+    # --- static frontend (built via `cd web && npm run build`) ----------
+    # mounted last so /api/* and the named routes above win over it.
+    web_dir = Path(__file__).parent / "web"
+    if web_dir.is_dir() and (web_dir / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web")
 
     return app
