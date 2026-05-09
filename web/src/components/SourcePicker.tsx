@@ -127,17 +127,25 @@ function DriveDialog({
     setError(null)
     setStep('adding')
     try {
+      let mismatch = false
       try {
         const info = await addDriveSource(trimmed)
         onAdded(info)
         return
       } catch (e: unknown) {
         const code = (e as { code?: string })?.code
-        if (code !== 'google_auth_required') throw e
+        if (code === 'google_auth_required') {
+          // first-time auth
+        } else if (code === 'google_account_mismatch') {
+          mismatch = true
+        } else {
+          throw e
+        }
       }
-      // No creds — open the OAuth popup, then retry.
       setStep('auth')
-      await googleAuthPopup()
+      // For mismatch, force the account picker so the user can switch
+      // to the account that owns / has access to this folder.
+      await googleAuthPopup(mismatch ? { prompt: 'select_account' } : undefined)
       setStep('adding')
       const info = await addDriveSource(trimmed)
       onAdded(info)

@@ -64,8 +64,18 @@ export async function addDriveSource(folder: string): Promise<SourceInfo> {
     body: JSON.stringify({ folder }),
   })
   if (res.status === 412) {
-    const err = new Error('google_auth_required') as Error & { code?: string }
-    err.code = 'google_auth_required'
+    let detail = ''
+    try {
+      detail = (await res.json())?.detail ?? ''
+    } catch {
+      /* ignore */
+    }
+    const code =
+      detail === 'google_account_mismatch'
+        ? 'google_account_mismatch'
+        : 'google_auth_required'
+    const err = new Error(code) as Error & { code?: string }
+    err.code = code
     throw err
   }
   if (!res.ok) throw new Error(`addDrive ${res.status}: ${await res.text()}`)
@@ -84,13 +94,15 @@ export async function googleAuthStatus(): Promise<{
 
 /** Open a popup to /api/google_auth/start and resolve when the popup
  *  signals success via window.postMessage from the callback page. */
-export function googleAuthPopup(timeoutMs = 5 * 60 * 1000): Promise<void> {
+export function googleAuthPopup(
+  opts?: { prompt?: 'consent' | 'select_account' | 'select_account consent' },
+  timeoutMs = 5 * 60 * 1000,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const popup = window.open(
-      '/api/google_auth/start',
-      'inq-google-auth',
-      'popup,width=520,height=640',
-    )
+    const url = opts?.prompt
+      ? `/api/google_auth/start?prompt=${encodeURIComponent(opts.prompt)}`
+      : '/api/google_auth/start'
+    const popup = window.open(url, 'inq-google-auth', 'popup,width=520,height=640')
     if (!popup) {
       reject(new Error('popup blocked — allow popups for inq and try again'))
       return

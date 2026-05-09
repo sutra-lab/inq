@@ -237,6 +237,15 @@ def create_app(
             )
         try:
             ds = DriveSource(folder_id=folder_id)
+        except FileNotFound:
+            # 404 from Drive: either the folder really doesn't exist OR the
+            # currently-authed account can't see it. We can't tell from the
+            # API; assume the more common "wrong account" case and offer the
+            # account picker.
+            raise HTTPException(
+                status_code=412,
+                detail="google_account_mismatch",
+            )
         except SourceError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         # id is stable per folder so opening the same folder twice doesn't dupe.
@@ -295,7 +304,10 @@ def create_app(
         }
 
     @app.get("/api/google_auth/start")
-    def auth_start(request: Request) -> RedirectResponse:
+    def auth_start(
+        request: Request,
+        prompt: str = "consent",
+    ) -> RedirectResponse:
         cid, _ = _client_creds()
         # Garbage-collect old states.
         cutoff = time.time() - _STATE_TTL
@@ -303,9 +315,11 @@ def create_app(
             if auth_states[k]["created"] < cutoff:
                 auth_states.pop(k, None)
 
+        # Whitelist the prompt values we accept.
+        if prompt not in {"consent", "select_account", "select_account consent"}:
+            prompt = "consent"
+
         state = secrets.token_urlsafe(24)
-        # Build redirect URI from the request's own base (works in dev via
-        # vite proxy and in prod when inq serves the page directly).
         base = str(request.base_url).rstrip("/")
         redirect_uri = f"{base}/api/google_auth/callback"
         auth_states[state] = {
@@ -318,6 +332,7 @@ def create_app(
             redirect_uri=redirect_uri,
             state=state,
             scopes=google_auth.DEFAULT_SCOPES,
+            prompt=prompt,
         )
         return RedirectResponse(url=url, status_code=302)
 

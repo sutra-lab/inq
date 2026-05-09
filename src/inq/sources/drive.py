@@ -47,13 +47,14 @@ class DriveSource:
         self.max_file_size = max_file_size
         self._tempdir = Path(tempfile.mkdtemp(prefix="inq-drive-"))
 
-        try:
-            meta = self._api_get(
-                f"/files/{folder_id}",
-                params={"fields": "id,name,mimeType"},
-            )
-        except FileNotFound:
-            raise SourceError(f"drive folder not found or not accessible: {folder_id}")
+        # Let FileNotFound propagate. Drive returns 404 both when the folder
+        # truly doesn't exist and when it exists but isn't visible to the
+        # currently-authenticated google account. The server layer treats
+        # this as "wrong account" and offers an account-picker re-auth.
+        meta = self._api_get(
+            f"/files/{folder_id}",
+            params={"fields": "id,name,mimeType"},
+        )
         if meta.get("mimeType") != FOLDER_MIME:
             raise SourceError(f"not a folder: {folder_id} (got {meta.get('mimeType')})")
         self.root_name = meta.get("name", folder_id)
