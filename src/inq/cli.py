@@ -15,7 +15,7 @@ from .init_cmd import run_init
 from .notes import render_markdown
 from .providers import known_providers, make_provider
 from .server import create_app
-from .sources import LocalSource, SourceError
+from .sources import DriveSource, LocalSource, SourceError
 from .threads import ThreadStore
 
 
@@ -80,6 +80,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def _add_serve_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--port", type=int, default=9090, help="port to bind (default 9090)")
     p.add_argument("--root", type=Path, default=Path.cwd(), help="directory to serve (default cwd)")
+    p.add_argument(
+        "--source",
+        default=None,
+        help=(
+            "alternate source. examples: "
+            "'drive:FOLDER_ID' (Google Drive folder, requires `inq auth google`). "
+            "default: local filesystem rooted at --root."
+        ),
+    )
     p.add_argument("--host", default="127.0.0.1", help="host to bind (default 127.0.0.1)")
     p.add_argument(
         "--max-file-size",
@@ -118,6 +127,22 @@ def main(argv: list[str] | None = None) -> int:
         return _run_auth(args, parser)
 
     return _run_serve(args, parser)
+
+
+def _build_source(args: argparse.Namespace):
+    """Return a LocalSource or DriveSource based on --source / --root."""
+    spec = (args.source or "").strip()
+    if spec.startswith("drive:"):
+        folder_id = spec[len("drive:") :].strip()
+        if not folder_id:
+            raise SourceError("drive:<FOLDER_ID> requires a folder id")
+        return DriveSource(folder_id=folder_id)
+    if spec and not spec.startswith("local"):
+        raise SourceError(f"unknown source spec: {spec!r} (expected 'drive:<id>')")
+    root = args.root.expanduser().resolve()
+    if not root.is_dir():
+        raise SourceError(f"--root is not a directory: {root}")
+    return LocalSource(root=root, max_file_size=args.max_file_size)
 
 
 def _run_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
@@ -170,10 +195,6 @@ def _run_notes(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
 
 
 def _run_serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    root = args.root.expanduser().resolve()
-    if not root.is_dir():
-        parser.error(f"--root is not a directory: {root}")
-
     if args.host != "127.0.0.1":
         print(
             f"warning: binding to {args.host} — inq has no auth. "
@@ -209,7 +230,7 @@ def _run_serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
         return 2
 
     try:
-        source = LocalSource(root=root, max_file_size=args.max_file_size)
+        source = _build_source(args)
     except SourceError as exc:
         parser.error(str(exc))
 
