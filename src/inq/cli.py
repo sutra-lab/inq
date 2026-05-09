@@ -15,6 +15,7 @@ from .init_cmd import run_init
 from .notes import render_markdown
 from .providers import known_providers, make_provider
 from .server import create_app
+from .registry import SourceRegistry
 from .sources import DriveSource, LocalSource, SourceError
 from .threads import ThreadStore
 
@@ -129,6 +130,13 @@ def main(argv: list[str] | None = None) -> int:
     return _run_serve(args, parser)
 
 
+def _build_local(args: argparse.Namespace) -> LocalSource:
+    root = args.root.expanduser().resolve()
+    if not root.is_dir():
+        raise SourceError(f"--root is not a directory: {root}")
+    return LocalSource(root=root, max_file_size=args.max_file_size)
+
+
 def _build_source(args: argparse.Namespace):
     """Return a LocalSource or DriveSource based on --source / --root."""
     spec = (args.source or "").strip()
@@ -139,10 +147,7 @@ def _build_source(args: argparse.Namespace):
         return DriveSource(folder_id=folder_id)
     if spec and not spec.startswith("local"):
         raise SourceError(f"unknown source spec: {spec!r} (expected 'drive:<id>')")
-    root = args.root.expanduser().resolve()
-    if not root.is_dir():
-        raise SourceError(f"--root is not a directory: {root}")
-    return LocalSource(root=root, max_file_size=args.max_file_size)
+    return _build_local(args)
 
 
 def _run_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
@@ -230,19 +235,33 @@ def _run_serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
         return 2
 
     try:
-        source = _build_source(args)
+        local = _build_local(args)
     except SourceError as exc:
         parser.error(str(exc))
 
-    threads = ThreadStore(source_label=source.label)
+    registry = SourceRegistry(default=local, default_id="local")
 
-    app = create_app(source=source, provider=provider, threads=threads, dev=args.dev)
+    # Optional: also pre-register a Drive source if --source drive:... was given.
+    if args.source and args.source.strip().startswith("drive:"):
+        try:
+            extra = _build_source(args)  # validates + instantiates
+        except SourceError as exc:
+            parser.error(str(exc))
+        if extra is not local:
+            try:
+                registry.add("drive-cli", "drive", extra)
+            except Exception as exc:
+                parser.error(f"failed to add drive source: {exc}")
+
+    app = create_app(registry=registry, provider=provider, dev=args.dev)
 
     print(f"inq {__version__}")
-    print(f"  source:   {source.label}")
+    print(f"  default:  {registry.default_id} = {local.label}")
+    for entry in registry.list():
+        if entry["id"] != registry.default_id:
+            print(f"  source:   {entry['id']} = {entry['label']}")
     print(f"  provider: {provider.name}  ({resolved.source})")
     print(f"  model:    {provider.model}")
-    print(f"  threads:  {threads.path}")
     print(f"  serving:  http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info", access_log=False)
     return 0
