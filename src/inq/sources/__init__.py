@@ -1,4 +1,5 @@
 from .base import FileNotFound, FileSource, NotADirectory, NotAFile, SourceError
+from .drive import DriveSource
 from .local import LocalSource
 
 __all__ = [
@@ -8,4 +9,5 @@ __all__ = [
     "NotAFile",
     "SourceError",
     "LocalSource",
+    "DriveSource",
 ]
