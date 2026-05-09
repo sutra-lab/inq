@@ -51,12 +51,12 @@ class Config:
 
 
 def load_config(path: Path = CONFIG_PATH) -> Config:
-    if not path.is_file():
-        return Config()
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return Config()
+    data: dict = {}
+    if path.is_file():
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            data = {}
 
     provider = data.get("provider") if isinstance(data.get("provider"), str) else None
     model = data.get("model") if isinstance(data.get("model"), str) else None
