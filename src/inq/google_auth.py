@@ -147,6 +147,46 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         pass
 
 
+def build_auth_url(
+    client_id: str,
+    redirect_uri: str,
+    state: str,
+    *,
+    scopes: list[str] | None = None,
+) -> str:
+    """Build the Google OAuth consent URL. Used by both the CLI loopback and
+    the in-browser web flow."""
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(scopes or DEFAULT_SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state,
+        "include_granted_scopes": "true",
+    }
+    return f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
+
+
+def exchange_code(
+    *,
+    client_id: str,
+    client_secret: str,
+    code: str,
+    redirect_uri: str,
+    scopes: list[str] | None = None,
+) -> GoogleCredentials:
+    """Public wrapper around the token exchange — used by the web flow."""
+    return _exchange_code(
+        client_id=client_id,
+        client_secret=client_secret,
+        code=code,
+        redirect_uri=redirect_uri,
+        scopes=scopes or DEFAULT_SCOPES,
+    )
+
+
 def authorize_loopback(
     client_id: str,
     client_secret: str,
