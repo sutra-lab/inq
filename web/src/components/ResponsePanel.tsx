@@ -1,14 +1,22 @@
 import { useState } from 'react'
 import type { Thread } from '../lib/threads'
+import { copyToClipboard, renderAll, renderThread } from '../lib/markdown'
 
 type Props = {
   threads: Thread[]
+  source: string
   onFollowup: (id: string, question: string) => void
   onRemove: (id: string) => void
   onFocusAnchor: (file: string, anchor: { startLine: number; endLine: number }) => void
 }
 
-export function ResponsePanel({ threads, onFollowup, onRemove, onFocusAnchor }: Props) {
+export function ResponsePanel({
+  threads,
+  source,
+  onFollowup,
+  onRemove,
+  onFocusAnchor,
+}: Props) {
   if (threads.length === 0) {
     return (
       <div className="px-3 py-3 text-fg-dim leading-relaxed">
@@ -24,6 +32,7 @@ export function ResponsePanel({ threads, onFollowup, onRemove, onFocusAnchor }: 
   }
   return (
     <div className="flex flex-col">
+      <ExportAllBar threads={threads} source={source} />
       {threads.map((t) => (
         <ThreadCard
           key={t.id}
@@ -33,6 +42,29 @@ export function ResponsePanel({ threads, onFollowup, onRemove, onFocusAnchor }: 
           onFocusAnchor={onFocusAnchor}
         />
       ))}
+    </div>
+  )
+}
+
+function ExportAllBar({ threads, source }: { threads: Thread[]; source: string }) {
+  const [copied, setCopied] = useState(false)
+  const onCopy = async () => {
+    const ok = await copyToClipboard(renderAll(threads, source))
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1200)
+    }
+  }
+  return (
+    <div className="flex items-center gap-2 px-3 h-7 border-b border-border text-[10px] uppercase tracking-[0.2em] bg-bg">
+      <span className="text-fg-mute">{threads.length} thread{threads.length === 1 ? '' : 's'}</span>
+      <button
+        onClick={onCopy}
+        className="ml-auto text-fg-dim hover:text-accent normal-case tracking-normal text-[11px]"
+        title="copy all threads as markdown"
+      >
+        {copied ? 'copied ✓' : 'copy all md'}
+      </button>
     </div>
   )
 }
@@ -75,6 +107,7 @@ function ThreadCard({
             <span className="text-accent">streaming…</span>
           )}
           {thread.status === 'error' && <span className="text-danger">error</span>}
+          <CopyMdButton thread={thread} />
           <button
             onClick={() => onRemove(thread.id)}
             className="hover:text-fg"
@@ -113,6 +146,25 @@ function ThreadCard({
         />
       )}
     </article>
+  )
+}
+
+function CopyMdButton({ thread }: { thread: Thread }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={async () => {
+        const ok = await copyToClipboard(renderThread(thread))
+        if (ok) {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1200)
+        }
+      }}
+      className="hover:text-fg text-[10px]"
+      title="copy this thread as markdown"
+    >
+      {copied ? '✓' : 'md'}
+    </button>
   )
 }
 
