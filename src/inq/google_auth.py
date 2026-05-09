@@ -117,7 +117,19 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 (BaseHTTPRequestHandler API)
         parsed = urllib.parse.urlsplit(self.path)
         params = dict(urllib.parse.parse_qsl(parsed.query))
-        type(self).captured = params
+
+        # Only the OAuth redirect carries a `code` or `error` param. Browsers
+        # also auto-request /favicon.ico after rendering the success page;
+        # those (and any other stray GETs) must not overwrite the real capture.
+        if type(self).captured is None and ("code" in params or "error" in params):
+            type(self).captured = params
+
+        # Quietly 204 the favicon so the browser stops trying.
+        if parsed.path == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
+
         body = (
             "<html><body style=\"font-family:ui-monospace,Menlo,Consolas,monospace;"
             "background:#0c0d0e;color:#e3e6e4;padding:40px\">"
