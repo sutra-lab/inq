@@ -163,25 +163,33 @@ def resolve_runtime(
     so the CLI can print it and exit non-zero.
 
     Order:
-      provider:  CLI flag > config > infer from any env var with a key
-      key:       --api-key-file > env var for provider > config file
+      provider:  CLI flag > config > env var present > keychain entry present
+      key:       --api-key-file > env var > config file > macOS keychain
+                 (service=inq, account=<provider>_api_key)
       model:     CLI flag > config > provider default
     """
     from . import providers as _p  # late import to avoid cycles
 
     provider = cli_provider or cfg.provider
     if provider is None:
-        # Try to infer from env.
+        # Try to infer from env vars first, then keychain entries.
         for name, info in _p.REGISTRY.items():
             if os.environ.get(info["env_var"]):
                 provider = name
                 break
+        if provider is None:
+            for name in _p.known_providers():
+                if _keychain_get(f"{name}_api_key"):
+                    provider = name
+                    break
 
     if provider is None:
         return (
             "no provider configured.\n"
             "  run `inq init` to set one up,\n"
-            "  or set ANTHROPIC_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY in the environment."
+            "  or set ANTHROPIC_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY in the environment,\n"
+            "  or store the key in macOS keychain:\n"
+            "    security add-generic-password -s inq -a anthropic_api_key -w"
         )
 
     if provider not in _p.REGISTRY:
@@ -196,11 +204,15 @@ def resolve_runtime(
         api_key, source = env_key, f"env ({env_var})"
     elif (cfg_key := cfg.api_key_for(provider)):
         api_key, source = cfg_key, "config file"
+    elif (kc_key := _keychain_get(f"{provider}_api_key")):
+        api_key, source = kc_key, f"keychain (inq/{provider}_api_key)"
     else:
         return (
             f"no api key found for {provider}.\n"
             f"  run `inq init` to save one,\n"
-            f"  or set {env_var} in the environment."
+            f"  set {env_var} in the environment,\n"
+            f"  or store in macOS keychain:\n"
+            f"    security add-generic-password -s inq -a {provider}_api_key -w"
         )
 
     model = cli_model or cfg.model or info["default_model"]
