@@ -1,0 +1,78 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  /* Defaults = dark theme */
+  --color-bg: #0c0d0e;
+  --color-bg-elevated: #14171a;
+  --color-bg-active: #1c2025;
+  --color-fg: #e3e6e4;
+  --color-fg-dim: #8a8f93;
+  --color-fg-mute: #4a4f54;
+  --color-border: #1f2326;
+  --color-border-strong: #2c3135;
+  --color-accent: #ffa657;
+  --color-accent-dim: #b97334;
+  --color-danger: #ff7066;
+  --color-warn: #f0b86e;
+}
+
+/* Light theme — paper aesthetic; same brutalist sensibility, inverted weight */
+html.theme-light {
+  --color-bg: #f5f1e8;
+  --color-bg-elevated: #ebe6d8;
+  --color-bg-active: #ddd5be;
+  --color-fg: #1a1714;
+  --color-fg-dim: #5a544a;
+  --color-fg-mute: #968d7e;
+  --color-border: #d6cfba;
+  --color-border-strong: #b5ad95;
+  --color-accent: #c25d1a;
+  --color-accent-dim: #d6804a;
+  --color-danger: #b03a2c;
+  --color-warn: #9c7820;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  font-feature-settings: 'calt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-mute);
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
