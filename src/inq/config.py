@@ -13,10 +13,17 @@ CONFIG_PATH = Path(
 
 
 @dataclass
+class GoogleOAuthConfig:
+    client_id: str | None = None
+    client_secret: str | None = None
+
+
+@dataclass
 class Config:
     provider: str | None = None
     model: str | None = None
     api_keys: dict[str, str] = field(default_factory=dict)
+    google_oauth: GoogleOAuthConfig = field(default_factory=GoogleOAuthConfig)
 
     def api_key_for(self, provider: str) -> str | None:
         return self.api_keys.get(provider)
@@ -42,7 +49,25 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
                 if isinstance(key, str) and key:
                     api_keys[name] = key
 
-    return Config(provider=provider, model=model, api_keys=api_keys)
+    google = GoogleOAuthConfig()
+    g_block = data.get("google_oauth")
+    if isinstance(g_block, dict):
+        cid = g_block.get("client_id")
+        cs = g_block.get("client_secret")
+        if isinstance(cid, str):
+            google.client_id = cid
+        if isinstance(cs, str):
+            google.client_secret = cs
+
+    # Env-var override (single-session use)
+    env_cid = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
+    env_cs = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
+    if env_cid:
+        google.client_id = env_cid
+    if env_cs:
+        google.client_secret = env_cs
+
+    return Config(provider=provider, model=model, api_keys=api_keys, google_oauth=google)
 
 
 def save_config(cfg: Config, path: Path = CONFIG_PATH) -> Path:
@@ -56,6 +81,13 @@ def save_config(cfg: Config, path: Path = CONFIG_PATH) -> Path:
     for name in sorted(cfg.api_keys):
         out.append(f"[providers.{name}]")
         out.append(f'api_key = "{_esc(cfg.api_keys[name])}"')
+        out.append("")
+    if cfg.google_oauth.client_id or cfg.google_oauth.client_secret:
+        out.append("[google_oauth]")
+        if cfg.google_oauth.client_id:
+            out.append(f'client_id = "{_esc(cfg.google_oauth.client_id)}"')
+        if cfg.google_oauth.client_secret:
+            out.append(f'client_secret = "{_esc(cfg.google_oauth.client_secret)}"')
         out.append("")
     body = "\n".join(out).rstrip() + "\n"
     # Write with restrictive permissions (0600).

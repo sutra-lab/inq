@@ -10,6 +10,7 @@ import json
 
 from . import __version__
 from .config import load_config, resolve_runtime
+from . import google_auth
 from .init_cmd import run_init
 from .notes import render_markdown
 from .providers import known_providers, make_provider
@@ -60,6 +61,16 @@ def _build_parser() -> argparse.ArgumentParser:
     notes.add_argument("--json", action="store_true", help="emit raw JSON instead of markdown")
     notes.set_defaults(_action="notes")
 
+    auth = sub.add_parser("auth", help="Authenticate with a third-party (e.g., Google).")
+    auth_sub = auth.add_subparsers(dest="auth_target")
+    google_p = auth_sub.add_parser("google", help="Run the Google OAuth loopback flow.")
+    google_p.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="don't try to open a browser; just print the URL",
+    )
+    auth.set_defaults(_action="auth")
+
     # Default subcommand: serve. Add the same args at the top level so
     # `inq --port 9090` works without a subcommand.
     _add_serve_args(p)
@@ -103,7 +114,43 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "notes" or action == "notes":
         return _run_notes(args, parser)
 
+    if args.command == "auth" or action == "auth":
+        return _run_auth(args, parser)
+
     return _run_serve(args, parser)
+
+
+def _run_auth(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    target = getattr(args, "auth_target", None)
+    if target != "google":
+        parser.error("usage: inq auth google [--no-browser]")
+    cfg = load_config()
+    cid = cfg.google_oauth.client_id
+    cs = cfg.google_oauth.client_secret
+    if not cid or not cs:
+        print(
+            "no Google OAuth client configured.\n"
+            "  add to ~/.config/inq/config.toml:\n"
+            "    [google_oauth]\n"
+            '    client_id = "..."\n'
+            '    client_secret = "..."\n'
+            "  or set GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET in env.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        creds = google_auth.authorize_loopback(
+            client_id=cid,
+            client_secret=cs,
+            open_browser=not args.no_browser,
+        )
+    except Exception as exc:
+        print(f"auth failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
+    path = google_auth.save_credentials(creds)
+    print(f"\n✓ saved Google credentials to {path}")
+    print(f"  scopes:  {', '.join(creds.scopes)}")
+    return 0
 
 
 def _run_notes(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
