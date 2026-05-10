@@ -28,51 +28,51 @@ jobs:
           cache-dependency-glob: |
             **/pyproject.toml
 
-      - name: install python ${{ matrix.py }}
-        run: uv python install 3.${{ matrix.py }}
+      - name: install python and create venv
+        run: |
+          uv python install 3.${{ matrix.py }}
+          uv venv --python 3.${{ matrix.py }}
 
       - name: install package
-        run: uv pip install --system --python 3.${{ matrix.py }} -e ".[dev]"
+        run: uv pip install -e ".[dev]"
 
-      - name: smoke — cli boots
+      - name: smoke
         run: |
+          source .venv/bin/activate
+
+          # CLI boots without crashing
           inq --version
           inq --help > /dev/null
           inq init --help > /dev/null
           inq notes --help > /dev/null
           inq auth google --help > /dev/null
 
-      - name: smoke — modules import + registry wires
-        run: |
+          # modules import + routing wires up
           python - <<'PY'
-          from inq.providers import REGISTRY, known_providers, make_provider
-          from inq.sources import LocalSource, DriveSource
+          from pathlib import Path
+          from inq.providers import known_providers, make_provider
+          from inq.sources import LocalSource
           from inq.registry import SourceRegistry
-          from inq.threads import StoredThread, ThreadStore
+          from inq.threads import StoredThread
           from inq.notes import render_markdown
           from inq import google_auth
-          from inq.config import load_config, resolve_runtime, Config
+          from inq.config import load_config
           from inq.server import create_app
           assert set(known_providers()) == {"anthropic", "gemini", "openai"}
           assert google_auth.DEFAULT_SCOPES, "scopes"
-          # construct an empty registry & app to make sure routing wires up
-          src = LocalSource(__import__("pathlib").Path("."))
+          src = LocalSource(Path("."))
           reg = SourceRegistry(default=src)
           provider = make_provider("anthropic", "test-key", model="claude-sonnet-4-6")
           app = create_app(registry=reg, provider=provider)
           paths = sorted(r.path for r in app.routes if hasattr(r, "path"))
-          for required in ["/api/health", "/api/tree", "/api/file", "/api/raw",
-                           "/api/ask", "/api/threads", "/api/sources",
-                           "/api/sources/drive", "/api/google_auth/start",
-                           "/api/google_auth/callback", "/api/google_auth/status"]:
+          for required in [
+              "/api/health", "/api/tree", "/api/file", "/api/raw",
+              "/api/ask", "/api/threads", "/api/sources",
+              "/api/sources/drive", "/api/google_auth/start",
+              "/api/google_auth/callback", "/api/google_auth/status",
+          ]:
               assert required in paths, f"missing route {required}"
-          print("ok")
-          PY
-
-      - name: smoke — markdown export
-        run: |
-          python - <<'PY'
-          from inq.notes import render_markdown
+          # markdown export shape
           out = render_markdown(
               "local: /tmp",
               [{
@@ -90,6 +90,16 @@ jobs:
           assert "## @ ask" in out
           assert "**Q:** what does this do?" in out
           assert "loads things." in out
+          # threads schema accepts both modes
+          for mode in ("ai", "comment"):
+              StoredThread.model_validate({
+                  "id": "t", "file": "f", "kind": "text", "mode": mode,
+                  "language": "text", "anchor": {"startLine": 1, "endLine": 1},
+                  "messages": [{"role": "user", "content": "x"}],
+                  "createdAt": "2026-05-10T00:00:00Z",
+                  "updatedAt": "2026-05-10T00:00:00Z",
+              })
+          print("smoke ok")
           PY
 
   lint:
