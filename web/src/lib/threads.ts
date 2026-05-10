@@ -34,6 +34,8 @@ export type ThreadAction =
   | { type: 'ERROR'; id: string; error: string }
   | { type: 'DONE'; id: string }
   | { type: 'REMOVE'; id: string }
+  | { type: 'EDIT_MESSAGE'; id: string; index: number; content: string }
+  | { type: 'DELETE_MESSAGE'; id: string; index: number }
 
 export function threadsReducer(state: Thread[], action: ThreadAction): Thread[] {
   switch (action.type) {
@@ -103,6 +105,23 @@ export function threadsReducer(state: Thread[], action: ThreadAction): Thread[] 
       )
     case 'REMOVE':
       return state.filter((t) => t.id !== action.id)
+    case 'EDIT_MESSAGE':
+      return state.map((t) => {
+        if (t.id !== action.id) return t
+        if (action.index < 0 || action.index >= t.messages.length) return t
+        const msgs = [...t.messages]
+        msgs[action.index] = { ...msgs[action.index], content: action.content }
+        return { ...t, messages: msgs }
+      })
+    case 'DELETE_MESSAGE':
+      return state.map((t) => {
+        if (t.id !== action.id) return t
+        if (action.index < 0 || action.index >= t.messages.length) return t
+        return {
+          ...t,
+          messages: t.messages.filter((_, i) => i !== action.index),
+        }
+      })
   }
 }
 
