@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pathspec
 
-
 LANG_BY_EXT: dict[str, str] = {
     ".py": "python",
     ".js": "javascript",

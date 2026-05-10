@@ -6,11 +6,12 @@ from ..sandbox import (
     GitignoreFilter,
     is_binary,
     language_for,
-    list_dir as _list_dir,
     resolve_within,
 )
+from ..sandbox import (
+    list_dir as _list_dir,
+)
 from .base import FileNotFound, NotADirectory, NotAFile, SourceError
-
 
 PDF_MAGIC = b"%PDF-"
 

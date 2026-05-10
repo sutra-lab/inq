@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 import uvicorn
 
-import json
-
-from . import __version__
+from . import __version__, google_auth
 from .config import load_config, resolve_runtime
-from . import google_auth
 from .init_cmd import run_init
 from .notes import render_markdown
 from .providers import known_providers, make_provider
-from .server import create_app
 from .registry import SourceRegistry
+from .server import create_app
 from .sources import DriveSource, LocalSource, SourceError
 from .threads import ThreadStore
 

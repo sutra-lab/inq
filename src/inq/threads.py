@@ -5,12 +5,11 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
-
 
 THREADS_DIR = Path(
     os.environ.get("INQ_THREADS_DIR")
@@ -47,7 +46,7 @@ def _source_key(source_label: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass

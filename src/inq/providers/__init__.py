@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from . import anthropic as anthropic_mod
 from . import gemini as gemini_mod
 from . import openai as openai_mod
 from .base import AskRequest, Provider, StreamEvent
-
-if TYPE_CHECKING:
-    from typing import Type
-
 
 REGISTRY: dict[str, dict] = {
     "anthropic": {

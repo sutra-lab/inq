@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from google import genai
 from google.genai import types
@@ -12,7 +12,6 @@ from ._context import (
     format_context,
 )
 from .base import AskRequest, StreamEvent
-
 
 DEFAULT_MODEL = "gemini-2.5-pro"
 MODELS = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"]
