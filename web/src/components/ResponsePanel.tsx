@@ -7,6 +7,8 @@ type Props = {
   source: string
   onFollowup: (id: string, question: string) => void
   onRemove: (id: string) => void
+  onEditMessage: (id: string, index: number, content: string) => void
+  onDeleteMessage: (id: string, index: number) => void
   onFocusAnchor: (file: string, anchor: { startLine: number; endLine: number }) => void
 }
 
@@ -15,6 +17,8 @@ export function ResponsePanel({
   source,
   onFollowup,
   onRemove,
+  onEditMessage,
+  onDeleteMessage,
   onFocusAnchor,
 }: Props) {
   if (threads.length === 0) {
@@ -39,6 +43,8 @@ export function ResponsePanel({
           thread={t}
           onFollowup={onFollowup}
           onRemove={onRemove}
+          onEditMessage={onEditMessage}
+          onDeleteMessage={onDeleteMessage}
           onFocusAnchor={onFocusAnchor}
         />
       ))}
@@ -73,11 +79,15 @@ function ThreadCard({
   thread,
   onFollowup,
   onRemove,
+  onEditMessage,
+  onDeleteMessage,
   onFocusAnchor,
 }: {
   thread: Thread
   onFollowup: (id: string, question: string) => void
   onRemove: (id: string) => void
+  onEditMessage: (id: string, index: number, content: string) => void
+  onDeleteMessage: (id: string, index: number) => void
   onFocusAnchor: (file: string, anchor: { startLine: number; endLine: number }) => void
 }) {
   const rangeLabel =
@@ -130,6 +140,12 @@ function ThreadCard({
               i === thread.messages.length - 1 &&
               m.role === 'assistant'
             }
+            editable={
+              m.role === 'user' &&
+              !(thread.status === 'streaming' && i === thread.messages.length - 1)
+            }
+            onEdit={(content) => onEditMessage(thread.id, i, content)}
+            onDelete={() => onDeleteMessage(thread.id, i)}
           />
         ))}
         {thread.error && (
@@ -173,15 +189,46 @@ function Message({
   content,
   mode,
   streaming,
+  editable,
+  onEdit,
+  onDelete,
 }: {
   role: 'user' | 'assistant'
   content: string
   mode: 'ai' | 'comment'
   streaming: boolean
+  editable: boolean
+  onEdit: (content: string) => void
+  onDelete: () => void
 }) {
   const userSigil = mode === 'comment' ? '#' : '›'
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(content)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const startEdit = () => {
+    setDraft(content)
+    setEditing(true)
+    setConfirmDelete(false)
+  }
+  const cancelEdit = () => {
+    setEditing(false)
+    setDraft(content)
+  }
+  const saveEdit = () => {
+    const next = draft.trim()
+    if (!next) {
+      // empty -> treat as delete
+      setEditing(false)
+      onDelete()
+      return
+    }
+    if (next !== content) onEdit(next)
+    setEditing(false)
+  }
+
   return (
-    <div className="flex gap-2 px-3 py-2 text-[12.5px] leading-[1.55]">
+    <div className="group flex gap-2 px-3 py-2 text-[12.5px] leading-[1.55]">
       <span
         className={
           role === 'user'
@@ -191,12 +238,95 @@ function Message({
       >
         {role === 'user' ? userSigil : '·'}
       </span>
-      <div className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fg">
-        {content}
-        {streaming && (
-          <span className="inline-block w-[7px] h-[13px] -mb-[2px] ml-[2px] bg-accent align-baseline animate-pulse" />
+      <div className="min-w-0 flex-1">
+        {editing ? (
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                saveEdit()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelEdit()
+              } else if (e.key === 'd' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault()
+                saveEdit()
+              }
+            }}
+            rows={Math.max(1, draft.split('\n').length)}
+            className="w-full bg-bg-elevated border border-accent text-fg resize-none outline-none px-2 py-1 leading-[1.5] text-[12.5px]"
+            style={{ minHeight: '24px', maxHeight: '320px' }}
+            onInput={(e) => {
+              const ta = e.currentTarget
+              ta.style.height = 'auto'
+              ta.style.height = Math.min(ta.scrollHeight, 320) + 'px'
+            }}
+          />
+        ) : (
+          <span className="whitespace-pre-wrap break-words text-fg">
+            {content}
+            {streaming && (
+              <span className="inline-block w-[7px] h-[13px] -mb-[2px] ml-[2px] bg-accent align-baseline animate-pulse" />
+            )}
+          </span>
         )}
       </div>
+      {editable && (
+        <div className="shrink-0 flex items-start gap-2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] uppercase tracking-[0.15em] text-fg-mute pt-[1px]">
+          {editing ? (
+            <>
+              <button
+                onClick={saveEdit}
+                className="hover:text-accent"
+                title="save (enter)"
+              >
+                save
+              </button>
+              <button
+                onClick={cancelEdit}
+                className="hover:text-fg"
+                title="cancel (esc)"
+              >
+                cancel
+              </button>
+            </>
+          ) : confirmDelete ? (
+            <>
+              <button
+                onClick={() => {
+                  setConfirmDelete(false)
+                  onDelete()
+                }}
+                className="text-danger hover:opacity-80"
+              >
+                delete?
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="hover:text-fg"
+              >
+                no
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={startEdit} className="hover:text-fg" title="edit">
+                edit
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="hover:text-danger"
+                title="delete"
+              >
+                ×
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

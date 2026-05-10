@@ -212,6 +212,44 @@ export default function App() {
     )
   }, [])
 
+  // Save the latest in-memory snapshot of a thread to disk, after React has
+  // applied a dispatch. Used for edit/delete operations on individual messages,
+  // since neither changes thread.status (so the terminal-status save hook
+  // doesn't fire on its own).
+  const persistAfterDispatch = useCallback((id: string) => {
+    queueMicrotask(() => {
+      const t = threadsRef.current.find((x) => x.id === id)
+      if (!t) return
+      saveThread(t, currentSourceRef.current).catch((e) =>
+        console.warn('[inq] saveThread failed:', e),
+      )
+    })
+  }, [])
+
+  const handleEditMessage = useCallback(
+    (id: string, index: number, content: string) => {
+      dispatch({ type: 'EDIT_MESSAGE', id, index, content })
+      persistAfterDispatch(id)
+    },
+    [persistAfterDispatch],
+  )
+
+  const handleDeleteMessage = useCallback(
+    (id: string, index: number) => {
+      const t = threadsRef.current.find((x) => x.id === id)
+      if (!t) return
+      // If this is the last remaining message, drop the whole thread —
+      // an empty thread is a confusing UI state.
+      if (t.messages.length <= 1) {
+        handleRemove(id)
+        return
+      }
+      dispatch({ type: 'DELETE_MESSAGE', id, index })
+      persistAfterDispatch(id)
+    },
+    [handleRemove, persistAfterDispatch],
+  )
+
   const handleFocusAnchor = useCallback(
     (file: string, _anchor: Anchor) => {
       if (file !== selectedPath) setSelectedPath(file)
@@ -368,6 +406,8 @@ export default function App() {
             source={sourceLabel}
             onFollowup={handleFollowup}
             onRemove={handleRemove}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
             onFocusAnchor={handleFocusAnchor}
           />
         </div>
