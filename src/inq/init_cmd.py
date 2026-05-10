@@ -133,7 +133,7 @@ def run_init() -> int:
     print()
     print(_green("✓ saved"))
     print(_dim(f"  config: {path}"))
-    print(_dim(f"  perms:  0600 (read/write owner only)"))
+    print(_dim("  perms:  0600 (read/write owner only)"))
     print()
     print("done. run " + _bold("inq --port 9090") + " from any directory to start.")
     print()

@@ -7,7 +7,6 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 CONFIG_PATH = Path(
     os.environ.get("INQ_CONFIG")
     or (Path.home() / ".config" / "inq" / "config.toml")

@@ -32,3 +32,19 @@ inq = "inq.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/inq"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+extend-exclude = ["src/inq/web", "web/node_modules", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+ignore = [
+  "E501",   # line too long — formatter handles, and many strings are intentional
+  "B008",   # function call in default argument — fine for CLI helpers
+]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -4,16 +4,21 @@ import json
 import re
 import secrets
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import __version__
-from . import google_auth
+from . import __version__, google_auth
 from .config import load_config
 from .providers import AskRequest as ProviderAskRequest
 from .providers import Provider, StreamEvent
@@ -48,7 +53,7 @@ class AddDriveSourceRequest(BaseModel):
 
 def _sse(event: str, data: str) -> bytes:
     safe = data.replace("\r\n", "\n").replace("\n", "\ndata: ")
-    return f"event: {event}\ndata: {safe}\n\n".encode("utf-8")
+    return f"event: {event}\ndata: {safe}\n\n".encode()
 
 
 async def _to_sse(events: AsyncIterator[StreamEvent]) -> AsyncIterator[bytes]:
@@ -124,8 +129,10 @@ def create_app(
     def _entry(source_id: str):
         try:
             return registry.get(source_id)
-        except KeyError:
-            raise HTTPException(status_code=404, detail=f"unknown source: {source_id}")
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404, detail=f"unknown source: {source_id}"
+            ) from exc
 
     # --- core data API --------------------------------------------------
 
@@ -167,12 +174,12 @@ def create_app(
         e = _entry(source or registry.default_id)
         try:
             file_data = e.source.read_for_ai(req.file)
-        except FileNotFound:
-            raise HTTPException(status_code=404, detail="file not found")
-        except NotAFile:
-            raise HTTPException(status_code=400, detail="not a file")
+        except FileNotFound as exc:
+            raise HTTPException(status_code=404, detail="file not found") from exc
+        except NotAFile as exc:
+            raise HTTPException(status_code=400, detail="not a file") from exc
         except SourceError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         if req.anchor.endLine < req.anchor.startLine:
             raise HTTPException(status_code=400, detail="anchor.endLine < anchor.startLine")
@@ -208,7 +215,7 @@ def create_app(
         try:
             return e.threads.upsert(thread.model_dump())
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.delete("/api/threads/{thread_id}")
     def delete_thread(thread_id: str, source: str = Query(default=None)) -> dict:
@@ -237,7 +244,7 @@ def create_app(
             )
         try:
             ds = DriveSource(folder_id=folder_id)
-        except FileNotFound:
+        except FileNotFound as exc:
             # 404 from Drive: either the folder really doesn't exist OR the
             # currently-authed account can't see it. We can't tell from the
             # API; assume the more common "wrong account" case and offer the
@@ -245,9 +252,9 @@ def create_app(
             raise HTTPException(
                 status_code=412,
                 detail="google_account_mismatch",
-            )
+            ) from exc
         except SourceError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         # id is stable per folder so opening the same folder twice doesn't dupe.
         sid = f"drive-{folder_id[:12]}"
         try:

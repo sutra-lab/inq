@@ -24,7 +24,6 @@ from .. import google_auth
 from ..sandbox import language_for
 from .base import FileNotFound, NotAFile, SourceError
 
-
 DRIVE_API = "https://www.googleapis.com/drive/v3"
 
 # Google-native types we know how to export to text.
@@ -82,9 +81,9 @@ class DriveSource:
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise FileNotFound(path)
+                raise FileNotFound(path) from e
             body = e.read().decode("utf-8", "replace") if hasattr(e, "read") else ""
-            raise SourceError(f"drive api {e.code}: {body[:200]}")
+            raise SourceError(f"drive api {e.code}: {body[:200]}") from e
 
     def _api_get_bytes(self, path: str, params: dict | None = None) -> bytes:
         url = f"{DRIVE_API}{path}"
@@ -96,9 +95,9 @@ class DriveSource:
                 return r.read()
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise FileNotFound(path)
+                raise FileNotFound(path) from e
             body = e.read().decode("utf-8", "replace") if hasattr(e, "read") else ""
-            raise SourceError(f"drive api {e.code}: {body[:200]}")
+            raise SourceError(f"drive api {e.code}: {body[:200]}") from e
 
     # -- FileSource API ---------------------------------------------------
 

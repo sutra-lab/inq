@@ -1,0 +1,131 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: python (3.${{ matrix.py }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        py: ["11", "12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: install python ${{ matrix.py }}
+        run: uv python install 3.${{ matrix.py }}
+
+      - name: install package
+        run: uv pip install --system --python 3.${{ matrix.py }} -e ".[dev]"
+
+      - name: smoke — cli boots
+        run: |
+          inq --version
+          inq --help > /dev/null
+          inq init --help > /dev/null
+          inq notes --help > /dev/null
+          inq auth google --help > /dev/null
+
+      - name: smoke — modules import + registry wires
+        run: |
+          python - <<'PY'
+          from inq.providers import REGISTRY, known_providers, make_provider
+          from inq.sources import LocalSource, DriveSource
+          from inq.registry import SourceRegistry
+          from inq.threads import StoredThread, ThreadStore
+          from inq.notes import render_markdown
+          from inq import google_auth
+          from inq.config import load_config, resolve_runtime, Config
+          from inq.server import create_app
+          assert set(known_providers()) == {"anthropic", "gemini", "openai"}
+          assert google_auth.DEFAULT_SCOPES, "scopes"
+          # construct an empty registry & app to make sure routing wires up
+          src = LocalSource(__import__("pathlib").Path("."))
+          reg = SourceRegistry(default=src)
+          provider = make_provider("anthropic", "test-key", model="claude-sonnet-4-6")
+          app = create_app(registry=reg, provider=provider)
+          paths = sorted(r.path for r in app.routes if hasattr(r, "path"))
+          for required in ["/api/health", "/api/tree", "/api/file", "/api/raw",
+                           "/api/ask", "/api/threads", "/api/sources",
+                           "/api/sources/drive", "/api/google_auth/start",
+                           "/api/google_auth/callback", "/api/google_auth/status"]:
+              assert required in paths, f"missing route {required}"
+          print("ok")
+          PY
+
+      - name: smoke — markdown export
+        run: |
+          python - <<'PY'
+          from inq.notes import render_markdown
+          out = render_markdown(
+              "local: /tmp",
+              [{
+                  "id": "x", "file": "a.py", "kind": "text", "mode": "ai",
+                  "language": "python",
+                  "anchor": {"startLine": 1, "endLine": 3},
+                  "messages": [
+                      {"role": "user", "content": "what does this do?"},
+                      {"role": "assistant", "content": "loads things."},
+                  ],
+                  "createdAt": "2026-05-10T00:00:00Z",
+                  "updatedAt": "2026-05-10T00:00:00Z",
+              }],
+          )
+          assert "## @ ask" in out
+          assert "**Q:** what does this do?" in out
+          assert "loads things." in out
+          PY
+
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "check --output-format=github"
+
+  web:
+    name: web (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: install
+        run: npm ci
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: build
+        run: npm run build
+
+      - name: confirm build artifacts shipped to src/inq/web
+        run: |
+          test -f ../src/inq/web/index.html
+          test -d ../src/inq/web/assets
+          test -d ../src/inq/web/pdfjs/cmaps
+          test -d ../src/inq/web/pdfjs/standard_fonts

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from anthropic import AsyncAnthropic
 
@@ -11,7 +11,6 @@ from ._context import (
     format_context,
 )
 from .base import AskRequest, StreamEvent
-
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
 MODELS = ["claude-sonnet-4-6", "claude-opus-4-7", "claude-haiku-4-5"]

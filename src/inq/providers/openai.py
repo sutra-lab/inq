@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI
 
@@ -11,7 +11,6 @@ from ._context import (
     format_context,
 )
 from .base import AskRequest, StreamEvent
-
 
 DEFAULT_MODEL = "gpt-4o"
 MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini"]

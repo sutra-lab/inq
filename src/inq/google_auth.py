@@ -24,7 +24,6 @@ import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 
-
 CREDENTIALS_PATH = Path(
     os.environ.get("INQ_GOOGLE_CREDS")
     or (Path.home() / ".config" / "inq" / "credentials" / "google.json")
@@ -59,7 +58,7 @@ class GoogleCredentials:
         }
 
     @classmethod
-    def from_json(cls, d: dict) -> "GoogleCredentials":
+    def from_json(cls, d: dict) -> GoogleCredentials:
         return cls(
             client_id=d["client_id"],
             client_secret=d["client_secret"],
