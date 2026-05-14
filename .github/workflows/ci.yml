@@ -36,71 +36,19 @@ jobs:
       - name: install package
         run: uv pip install -e ".[dev]"
 
-      - name: smoke
+      - name: cli boots
         run: |
           source .venv/bin/activate
-
-          # CLI boots without crashing
           inq --version
           inq --help > /dev/null
           inq init --help > /dev/null
           inq notes --help > /dev/null
           inq auth google --help > /dev/null
 
-          # modules import + routing wires up
-          python - <<'PY'
-          from pathlib import Path
-          from inq.providers import known_providers, make_provider
-          from inq.sources import LocalSource
-          from inq.registry import SourceRegistry
-          from inq.threads import StoredThread
-          from inq.notes import render_markdown
-          from inq import google_auth
-          from inq.config import load_config
-          from inq.server import create_app
-          assert set(known_providers()) == {"anthropic", "gemini", "openai"}
-          assert google_auth.DEFAULT_SCOPES, "scopes"
-          src = LocalSource(Path("."))
-          reg = SourceRegistry(default=src)
-          provider = make_provider("anthropic", "test-key", model="claude-sonnet-4-6")
-          app = create_app(registry=reg, provider=provider)
-          paths = sorted(r.path for r in app.routes if hasattr(r, "path"))
-          for required in [
-              "/api/health", "/api/tree", "/api/file", "/api/raw",
-              "/api/ask", "/api/threads", "/api/sources",
-              "/api/sources/drive", "/api/google_auth/start",
-              "/api/google_auth/callback", "/api/google_auth/status",
-          ]:
-              assert required in paths, f"missing route {required}"
-          # markdown export shape
-          out = render_markdown(
-              "local: /tmp",
-              [{
-                  "id": "x", "file": "a.py", "kind": "text", "mode": "ai",
-                  "language": "python",
-                  "anchor": {"startLine": 1, "endLine": 3},
-                  "messages": [
-                      {"role": "user", "content": "what does this do?"},
-                      {"role": "assistant", "content": "loads things."},
-                  ],
-                  "createdAt": "2026-05-10T00:00:00Z",
-                  "updatedAt": "2026-05-10T00:00:00Z",
-              }],
-          )
-          assert "## @ ask" in out
-          assert "**Q:** what does this do?" in out
-          assert "loads things." in out
-          # threads schema accepts both modes
-          for mode in ("ai", "comment"):
-              StoredThread.model_validate({
-                  "id": "t", "file": "f", "kind": "text", "mode": mode,
-                  "language": "text", "anchor": {"startLine": 1, "endLine": 1},
-                  "messages": [{"role": "user", "content": "x"}],
-                  "createdAt": "2026-05-10T00:00:00Z",
-                  "updatedAt": "2026-05-10T00:00:00Z",
-              })
-          print("smoke ok")
-          PY
+      - name: pytest
+        run: |
+          source .venv/bin/activate
+          pytest -q
 
   lint:
     name: ruff
