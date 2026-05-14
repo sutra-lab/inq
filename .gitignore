@@ -16,6 +16,9 @@ dist/
 venv/
 ENV/
 
+# uv: we don't ship a lockfile
+uv.lock
+
 # Node
 node_modules/
 .vite/
