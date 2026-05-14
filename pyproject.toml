@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "inq-review"
-version = "0.1.0"
+version = "0.1.1"
 description = "Terminal-native web UI for AI-assisted code and document review"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,16 @@ inq = "inq.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/inq"]
+artifacts = ["src/inq/web/**"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/inq/**/*.py",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE",
+    "project-spec.md",
+]
 artifacts = ["src/inq/web/**"]
 
 [tool.ruff]

@@ -43,21 +43,30 @@ jobs:
           uv venv --python 3.12
           uv pip install build
 
-      - name: build wheel
+      - name: build sdist + wheel
         run: |
           source .venv/bin/activate
-          python -m build --wheel
+          python -m build
 
-      - name: confirm frontend shipped in wheel
+      - name: confirm frontend shipped in both wheel and sdist
         run: |
           set -euo pipefail
           wheel=$(ls dist/*.whl)
+          sdist=$(ls dist/*.tar.gz)
           echo "wheel: $wheel"
-          contents=$(unzip -l "$wheel")
-          echo "$contents" | grep -q 'inq/web/index\.html$'
-          echo "$contents" | grep -q 'inq/web/assets/'
-          echo "$contents" | grep -q 'inq/web/pdfjs/cmaps/'
-          echo "$contents" | grep -q 'inq/web/pdfjs/standard_fonts/'
+          echo "sdist: $sdist"
+
+          wheel_contents=$(unzip -l "$wheel")
+          echo "$wheel_contents" | grep -q 'inq/web/index\.html$'
+          echo "$wheel_contents" | grep -q 'inq/web/assets/'
+          echo "$wheel_contents" | grep -q 'inq/web/pdfjs/cmaps/'
+          echo "$wheel_contents" | grep -q 'inq/web/pdfjs/standard_fonts/'
+
+          sdist_contents=$(tar -tzf "$sdist")
+          echo "$sdist_contents" | grep -q 'src/inq/web/index\.html$'
+          echo "$sdist_contents" | grep -q 'src/inq/web/assets/'
+          echo "$sdist_contents" | grep -q 'src/inq/web/pdfjs/cmaps/'
+          echo "$sdist_contents" | grep -q 'src/inq/web/pdfjs/standard_fonts/'
 
       - uses: actions/upload-artifact@v4
         with:
