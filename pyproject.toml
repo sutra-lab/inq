@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "inq-review"
-version = "0.1.1"
+version = "0.1.2"
 description = "Terminal-native web UI for AI-assisted code and document review"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Vaibhav Singh", email = "singh.vaibhav.83@gmail.com" }]
+authors = [{ name = "sutra-lab", email = "vaibhav@sutralab.dev" }]
 keywords = ["code-review", "ai", "annotation", "pdf", "claude", "anthropic", "gemini"]
 classifiers = [
     "Development Status :: 3 - Alpha",
