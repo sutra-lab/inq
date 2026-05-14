@@ -2,6 +2,11 @@
 
 > A lightweight, terminal-native web UI for reviewing and annotating code, PDFs, and markdown — together with AI.
 
+[![ci](https://img.shields.io/github/actions/workflow/status/sutra-lab/inq/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/sutra-lab/inq/actions/workflows/ci.yml)
+[![codeql](https://img.shields.io/github/actions/workflow/status/sutra-lab/inq/codeql.yml?branch=main&label=codeql&style=flat-square)](https://github.com/sutra-lab/inq/actions/workflows/codeql.yml)
+[![pypi](https://img.shields.io/pypi/v/inq-review?style=flat-square&label=pypi)](https://pypi.org/project/inq-review/)
+[![python](https://img.shields.io/pypi/pyversions/inq-review?style=flat-square)](https://pypi.org/project/inq-review/)
+
 `inq` is a self-hosted server. You run it on a remote machine, forward the port locally, and open it in a browser. It gives you a file explorer, a scrollable viewer for code / PDFs / markdown, and an annotation surface that humans and AI agents both write into. Threads stay anchored to the line (or page) you asked about, and persist per source.
 
 ```
