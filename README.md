@@ -69,8 +69,8 @@ npm run build           # produces src/inq/web/ — FastAPI mounts it at /
 
 Reading code, specs, and documents deeply means asking questions inline — but most workflows force you into a chat window, losing context. Cursor and VS Code remote are heavy editor environments; Claude Code lives in the terminal, not in a scrollable viewer. `inq` is the small, focused tool that fits between them: zero-install on the client, browser-native, and built around asking questions in place.
 
-See [`project-spec.md`](./project-spec.md) for the full design.
+See [`project-spec.md`](https://github.com/sutra-lab/inq/blob/main/project-spec.md) for the full design.
 
 ## License
 
-MIT — see [`LICENSE`](./LICENSE).
+MIT — see [`LICENSE`](https://github.com/sutra-lab/inq/blob/main/LICENSE).
