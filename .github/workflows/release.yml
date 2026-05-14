@@ -1,0 +1,80 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: build frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: confirm frontend artifacts present
+        run: |
+          test -f src/inq/web/index.html
+          test -d src/inq/web/assets
+          test -d src/inq/web/pdfjs/cmaps
+          test -d src/inq/web/pdfjs/standard_fonts
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            **/pyproject.toml
+
+      - name: install python and build deps
+        run: |
+          uv python install 3.12
+          uv venv --python 3.12
+          uv pip install build
+
+      - name: build wheel
+        run: |
+          source .venv/bin/activate
+          python -m build --wheel
+
+      - name: confirm frontend shipped in wheel
+        run: |
+          set -euo pipefail
+          wheel=$(ls dist/*.whl)
+          echo "wheel: $wheel"
+          unzip -l "$wheel" | grep -E 'inq/web/index\.html$'
+          unzip -l "$wheel" | grep -E 'inq/web/assets/' | head -3
+          unzip -l "$wheel" | grep -E 'inq/web/pdfjs/cmaps/' | head -3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to pypi
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/inq-review
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
