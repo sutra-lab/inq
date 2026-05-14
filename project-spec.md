@@ -67,23 +67,32 @@ Open `http://localhost:9090` in your browser.
 - Conversation history per thread (for follow-ups)
 - File contents are sent inside a cached prompt block (Anthropic prompt caching), so follow-ups on the same file are cheap and fast
 
+### 6. Comment-only Notes (`#` keybind)
+- Same anchor mechanism as `@`, but no AI roundtrip
+- Renders alongside AI threads in the right panel with a `#` sigil
+- Useful for "ask me about this later" or static review notes that don't need a model
+
 ---
 
 ## Configuration
 
-Via a config file (`~/.inqrc` or `inq.yaml`) or CLI flags:
+Resolution order for credentials: `--api-key-file` flag → `<PROVIDER>_API_KEY` env var → `~/.config/inq/config.toml` (mode `0600`) → macOS keychain (service `inq`).
 
-```yaml
-port: 9090
-root: ~/projects
-ai:
-  provider: claude          # claude | gemini | openai
-  model: claude-sonnet-4-6     # default; bump to claude-opus-4-7 for harder reading
-  api_key_env: ANTHROPIC_API_KEY
-  prompt_caching: true         # cache file contents across follow-ups
-  context_window: 20           # lines above/below the anchored region
-  full_file_context: false     # send entire file vs windowed context
+`~/.config/inq/config.toml`:
+
+```toml
+provider = "anthropic"         # anthropic | gemini | openai
+model = "claude-sonnet-4-6"    # bump to claude-opus-4-7 for harder reading
+
+[providers.anthropic]
+api_key = "..."                # or fall back to keychain / env var
+
+[google_oauth]                 # only needed if using Google Drive as a source
+client_id = "..."
+client_secret = "..."
 ```
+
+`inq init` walks you through this interactively.
 
 ---
 
@@ -104,47 +113,74 @@ ai:
 | Frontend | Vite + React + TypeScript | UI is the product — vanilla JS turns to spaghetti once threading, streaming, and selection ranges land |
 | Editor / viewer | CodeMirror 6 | Decoration & widget API is purpose-built for inline `@` inputs and line-anchored markers; selection ranges are first-class |
 | Styling | Tailwind | Dark theme + dense UI with no CSS architecture debate |
-| AI client | Anthropic SDK with prompt caching | Direct. File contents cache well — the difference between snappy and chat-app-feel |
-| Packaging | `pip install inq` (frontend pre-built into the wheel) | One install, no Node on the remote box |
+| AI client | Anthropic / Google `google-genai` / OpenAI SDKs behind a `Provider` protocol | Three providers via one interface; prompt caching on the shared file-context system block |
+| Source layer | `FileSource` protocol with `LocalSource` (filesystem) and `DriveSource` (Google Drive v3) | A registry maps multiple sources at runtime — local always present, Drive added via the UI after OAuth |
+| Packaging | `pip install inq-review` (frontend pre-built into the wheel; sdist also includes the built assets) | One install, no Node on the remote box. `inq` is taken on PyPI — the import name and CLI command are still `inq` |
 
 ---
 
-## MVP Build Plan (a focused weekend, ~10 hrs)
+## Build Plan
 
-### Phase 1: Backend (~2 hrs)
-- [ ] FastAPI server with `--port` and `--root` CLI args; bind to `127.0.0.1` only
-- [ ] `GET /api/tree?path=...&depth=1` — lazy directory listing one level at a time, `.gitignore`-aware, root-sandboxed
-- [ ] `GET /api/file?path=...` — returns content + language hint, enforces size cap, rejects binaries
-- [ ] `POST /api/ask` — receives `{question, file, anchor, context_lines, history}` (anchor is `{startLine, endLine}`), calls Anthropic with prompt caching, streams response via SSE
+### Phase 1: Backend (shipped)
+- [x] FastAPI server with `--port` and `--root` CLI args; bind to `127.0.0.1` only
+- [x] `GET /api/tree?path=...&depth=1` — lazy directory listing one level at a time, `.gitignore`-aware, root-sandboxed
+- [x] `GET /api/file?path=...` — returns content + language hint, enforces size cap, rejects binaries
+- [x] `POST /api/ask` — receives `{question, file, anchor, context_lines, history}` (anchor is `{startLine, endLine}`), calls the provider with prompt caching, streams via SSE
 
-### Phase 2: Frontend Shell (~1.5 hrs)
-- [ ] Vite + React + TypeScript + Tailwind scaffold
-- [ ] Three-panel layout, dark theme baseline
-- [ ] File tree component with lazy expand on click
+### Phase 2: Frontend Shell (shipped)
+- [x] Vite + React 19 + TypeScript + Tailwind v4 scaffold
+- [x] Three-panel layout; dark + light (paper) themes
+- [x] File tree component with lazy expand on click
 
-### Phase 3: Viewer + Inline Input (~3 hrs)
-- [ ] CodeMirror 6 viewer with line numbers, language modes, dark theme
-- [ ] `@` keybind reads current selection (or cursor line if collapsed); opens an inline widget at the anchor
-- [ ] Submit POSTs to `/api/ask` with the resolved range; response streams into the right panel
+### Phase 3: Viewer + Inline Input (shipped)
+- [x] CodeMirror 6 viewer with line numbers, language modes, both themes
+- [x] `@` keybind reads selection (or cursor line); inline widget opens at the anchor
+- [x] Submit POSTs to `/api/ask`; response streams into the right panel, rendered as markdown
 
-### Phase 4: Threading + Polish (~2.5 hrs)
-- [ ] Right panel groups responses by file, anchored by line/range
-- [ ] Follow-up questions stay inside the same thread
-- [ ] Gutter markers on annotated lines; click to reopen the thread
-- [ ] Keyboard nav (arrow keys, `Esc` to dismiss, `Cmd-K` to focus tree)
+### Phase 4: Threading + Polish (shipped)
+- [x] Right panel groups responses by file, anchored by line/range
+- [x] Follow-up questions stay inside the same thread
+- [x] Gutter markers on annotated lines; click to reopen the thread
+- [x] Keyboard nav, dismiss, focus
 
-### Phase 5: Packaging (~1 hr)
-- [ ] Build frontend, ship `dist/` inside the Python wheel
-- [ ] Console script entrypoint: `inq --port 9090 --root .`
+### Phase 5: Packaging (shipped)
+- [x] Build frontend, ship inside the Python wheel
+- [x] Console script entrypoint: `inq --port 9090 --root .`
+
+### Phase 6a: PDF + File Source Abstraction (shipped)
+- [x] `FileSource` protocol; `LocalSource` reads the filesystem, sandboxed at `--root`
+- [x] PDF viewer (pdfjs-dist) with page anchors; cmaps + standard fonts bundled
+
+### Phase 6b: Google Drive + OAuth (shipped)
+- [x] `DriveSource` reads a Drive folder as `inq`'s root (Drive v3, file-id-as-path)
+- [x] Browser-driven OAuth: "Open Drive folder" button → popup → multi-source registry adds the folder
+- [x] Account-picker re-auth when the current account can't see the requested folder
+- [x] OAuth client credentials read from config + macOS keychain fallback
+
+### Phase 7a: Persistent Threads (shipped)
+- [x] Threads persist per source at `~/.config/inq/threads/<sha256(source.label)[:16]>.json`
+- [x] Each source label is hashed for the filename — labels include `"local: <abs path>"` or `"drive: <folder name>"`
+
+### Phase 7b: Comment-only Notes (shipped)
+- [x] `#` keybind creates a thread with `mode: 'comment'` — no AI call, no follow-ups against the model
+- [x] Renders with `#` sigil instead of `›`; follow-ups append additional notes
+
+### Phase 7c: Markdown Export (shipped)
+- [x] `inq notes --root <dir> [--file <path>] [--json]` prints threads as markdown
+- [x] "Copy md" buttons in the UI use the same renderer
+- [x] Same shape works for both `@` ask and `#` comment threads
+
+### CI / Release (shipped)
+- [x] `ci.yml`: python smoke matrix (3.11/3.12) + ruff + web typecheck/build
+- [x] `release.yml`: tag-driven (`v*`), builds frontend → builds sdist + wheel → verifies frontend is bundled → publishes via PyPI Trusted Publishing
 
 ---
 
-## Out of Scope for MVP
+## Out of Scope (still)
 - Authentication (it's local port-forwarded, you own it)
-- PDF rendering (Phase 2)
 - Multi-user sessions
-- Response persistence / history across sessions
 - Diffing or editing files
+- Server-side write endpoints (read-only by design)
 
 ---
 
