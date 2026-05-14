@@ -36,6 +36,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "httpx>=0.27",
+    "pyright>=1.1.380",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
 ]
@@ -52,6 +53,15 @@ inq = "inq.cli:main"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 filterwarnings = ["error::DeprecationWarning:inq.*"]
+
+[tool.pyright]
+include = ["src/inq", "tests"]
+exclude = ["src/inq/web", "web/node_modules", ".venv", "**/__pycache__"]
+venv = ".venv"
+venvPath = "."
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/inq"]

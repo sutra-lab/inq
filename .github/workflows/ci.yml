@@ -59,6 +59,29 @@ jobs:
         with:
           args: "check --output-format=github"
 
+  typecheck:
+    name: pyright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            **/pyproject.toml
+
+      - name: install python and create venv
+        run: |
+          uv python install 3.12
+          uv venv --python 3.12
+
+      - name: install package + dev deps
+        run: uv pip install -e ".[dev]"
+
+      - name: pyright
+        run: .venv/bin/pyright
+
   web:
     name: web (typecheck + build)
     runs-on: ubuntu-latest

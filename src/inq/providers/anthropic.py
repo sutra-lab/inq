@@ -55,11 +55,12 @@ class AnthropicProvider:
         yield StreamEvent("start", {"provider": self.name, "model": self.model})
 
         try:
+            # The SDK wants TypedDict shapes; we build plain dicts at runtime.
             async with self._client.messages.stream(
                 model=self.model,
                 max_tokens=req.max_tokens,
-                system=system_blocks,
-                messages=messages,
+                system=system_blocks,  # pyright: ignore[reportArgumentType]
+                messages=messages,  # pyright: ignore[reportArgumentType]
             ) as stream:
                 async for text in stream.text_stream:
                     yield StreamEvent("token", text)

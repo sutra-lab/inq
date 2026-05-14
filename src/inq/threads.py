@@ -111,19 +111,17 @@ class ThreadStore:
         now = _now_iso()
         existing = self._read()
         threads = existing["threads"]
+        t_dict = t.model_dump()
+        t_dict["updatedAt"] = now
         replaced = False
         for i, raw in enumerate(threads):
             if isinstance(raw, dict) and raw.get("id") == t.id:
-                t_dict = t.model_dump()
                 t_dict["createdAt"] = raw.get("createdAt") or t.createdAt
-                t_dict["updatedAt"] = now
                 threads[i] = t_dict
                 replaced = True
                 break
         if not replaced:
-            t_dict = t.model_dump()
             t_dict["createdAt"] = t.createdAt or now
-            t_dict["updatedAt"] = now
             threads.append(t_dict)
         existing["source"] = self.source_label
         self._write(existing)

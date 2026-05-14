@@ -51,10 +51,11 @@ class OpenAIProvider:
         yield StreamEvent("start", {"provider": self.name, "model": self.model})
 
         try:
-            stream = await self._client.chat.completions.create(
+            # The SDK wants TypedDict shapes; we build plain dicts at runtime.
+            stream = await self._client.chat.completions.create(  # pyright: ignore[reportCallIssue]
                 model=self.model,
                 max_tokens=req.max_tokens,
-                messages=messages,
+                messages=messages,  # pyright: ignore[reportArgumentType]
                 stream=True,
                 stream_options={"include_usage": True},
             )

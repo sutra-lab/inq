@@ -44,4 +44,6 @@ class Provider(Protocol):
     name: str
     model: str
 
-    async def stream(self, req: AskRequest) -> AsyncIterator[StreamEvent]: ...
+    # Implementations are async generators, so the method returns an
+    # AsyncIterator directly — no outer coroutine to await.
+    def stream(self, req: AskRequest) -> AsyncIterator[StreamEvent]: ...
