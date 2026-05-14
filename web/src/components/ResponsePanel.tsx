@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Thread } from '../lib/threads'
 import { copyToClipboard, renderAll, renderThread } from '../lib/markdown'
 
@@ -265,12 +267,16 @@ function Message({
               ta.style.height = Math.min(ta.scrollHeight, 320) + 'px'
             }}
           />
-        ) : (
-          <span className="whitespace-pre-wrap break-words text-fg">
-            {content}
+        ) : role === 'assistant' ? (
+          <div className="text-fg break-words">
+            <AssistantMarkdown content={content} />
             {streaming && (
               <span className="inline-block w-[7px] h-[13px] -mb-[2px] ml-[2px] bg-accent align-baseline animate-pulse" />
             )}
+          </div>
+        ) : (
+          <span className="whitespace-pre-wrap break-words text-fg">
+            {content}
           </span>
         )}
       </div>
@@ -328,6 +334,123 @@ function Message({
         </div>
       )}
     </div>
+  )
+}
+
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ node: _n, ...p }) => (
+          <p className="my-1.5 first:mt-0 last:mb-0" {...p} />
+        ),
+        ul: ({ node: _n, ...p }) => (
+          <ul
+            className="my-1.5 list-disc pl-5 marker:text-fg-mute first:mt-0 last:mb-0"
+            {...p}
+          />
+        ),
+        ol: ({ node: _n, ...p }) => (
+          <ol
+            className="my-1.5 list-decimal pl-5 marker:text-fg-mute first:mt-0 last:mb-0"
+            {...p}
+          />
+        ),
+        li: ({ node: _n, ...p }) => <li className="my-0.5" {...p} />,
+        h1: ({ node: _n, ...p }) => (
+          <h1
+            className="mt-3 mb-1.5 text-[15px] font-semibold text-accent first:mt-0"
+            {...p}
+          />
+        ),
+        h2: ({ node: _n, ...p }) => (
+          <h2
+            className="mt-3 mb-1.5 text-[13.5px] font-semibold text-fg first:mt-0"
+            {...p}
+          />
+        ),
+        h3: ({ node: _n, ...p }) => (
+          <h3
+            className="mt-2 mb-1 text-[13px] font-semibold text-fg first:mt-0"
+            {...p}
+          />
+        ),
+        h4: ({ node: _n, ...p }) => (
+          <h4
+            className="mt-2 mb-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-fg-dim first:mt-0"
+            {...p}
+          />
+        ),
+        blockquote: ({ node: _n, ...p }) => (
+          <blockquote
+            className="my-1.5 border-l-2 border-border pl-2 text-fg-dim italic"
+            {...p}
+          />
+        ),
+        hr: ({ node: _n, ...p }) => (
+          <hr className="my-3 border-0 border-t border-border" {...p} />
+        ),
+        a: ({ node: _n, ...p }) => (
+          <a
+            className="text-accent underline underline-offset-2 hover:opacity-80"
+            target="_blank"
+            rel="noreferrer"
+            {...p}
+          />
+        ),
+        code: ({ inline, node: _n, className, children, ...p }: {
+          inline?: boolean
+          node?: unknown
+          className?: string
+          children?: React.ReactNode
+        }) =>
+          inline ? (
+            <code
+              className="px-1 py-0.5 bg-bg-elevated border border-border text-[11.5px] text-accent"
+              {...p}
+            >
+              {children}
+            </code>
+          ) : (
+            <code className={`${className ?? ''} font-mono`} {...p}>
+              {children}
+            </code>
+          ),
+        pre: ({ node: _n, ...p }) => (
+          <pre
+            className="my-2 p-2 bg-bg-elevated border border-border overflow-x-auto text-[11.5px] leading-[1.5]"
+            {...p}
+          />
+        ),
+        table: ({ node: _n, ...p }) => (
+          <div className="my-2 overflow-x-auto">
+            <table className="w-full border-collapse text-[12px]" {...p} />
+          </div>
+        ),
+        th: ({ node: _n, ...p }) => (
+          <th
+            className="text-left px-1.5 py-0.5 border-b-2 border-border-strong font-semibold uppercase tracking-[0.05em] text-[10.5px] text-fg-dim"
+            {...p}
+          />
+        ),
+        td: ({ node: _n, ...p }) => (
+          <td
+            className="px-1.5 py-0.5 border-b border-border align-top"
+            {...p}
+          />
+        ),
+        img: ({ node: _n, ...p }) => (
+          <img className="my-2 max-w-full" {...p} />
+        ),
+        strong: ({ node: _n, ...p }) => (
+          <strong className="text-fg font-semibold" {...p} />
+        ),
+        em: ({ node: _n, ...p }) => <em className="italic" {...p} />,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
   )
 }
 
