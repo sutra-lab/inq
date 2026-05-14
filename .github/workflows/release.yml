@@ -53,9 +53,11 @@ jobs:
           set -euo pipefail
           wheel=$(ls dist/*.whl)
           echo "wheel: $wheel"
-          unzip -l "$wheel" | grep -E 'inq/web/index\.html$'
-          unzip -l "$wheel" | grep -E 'inq/web/assets/' | head -3
-          unzip -l "$wheel" | grep -E 'inq/web/pdfjs/cmaps/' | head -3
+          contents=$(unzip -l "$wheel")
+          echo "$contents" | grep -q 'inq/web/index\.html$'
+          echo "$contents" | grep -q 'inq/web/assets/'
+          echo "$contents" | grep -q 'inq/web/pdfjs/cmaps/'
+          echo "$contents" | grep -q 'inq/web/pdfjs/standard_fonts/'
 
       - uses: actions/upload-artifact@v4
         with:
