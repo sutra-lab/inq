@@ -68,7 +68,7 @@ jobs:
           echo "$sdist_contents" | grep -q 'src/inq/web/pdfjs/cmaps/'
           echo "$sdist_contents" | grep -q 'src/inq/web/pdfjs/standard_fonts/'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
